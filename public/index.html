@@ -57,51 +57,10 @@ html,body{width:100%;height:100%;overflow:hidden;font-family:'Poppins',system-ui
 /* small countdown badge */
 .effect-badge{position:absolute;top:8px;right:8px;background:rgba(0,0,0,.4);padding:6px 8px;border-radius:10px;font-size:12px;border:1px solid rgba(255,255,255,.06);}
 .toast{position:fixed;left:50%;transform:translateX(-50%);bottom:80px;background:#111;padding:10px 14px;border-radius:8px;color:#fff;box-shadow:0 6px 20px rgba(0,0,0,.6);display:none;z-index:300;}
-
-/* ===== WELCOME ONLY (ADDED) ===== */
-#welcomeOverlay{
-  position:fixed;
-  inset:0;
-  background:radial-gradient(circle at top,#2e2440,#1a1426);
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  flex-direction:column;
-  gap:18px;
-  z-index:9999;
-  text-align:center;
-}
-#welcomeOverlay h1{
-  font-size:26px;
-  font-weight:800;
-}
-#welcomeOverlay p{
-  font-size:16px;
-  opacity:.85;
-}
-#welcomeBtn{
-  margin-top:10px;
-  background:#ffbf5a;
-  color:#000;
-  font-size:18px;
-  font-weight:800;
-  padding:14px 40px;
-  border-radius:18px;
-  border:none;
-  cursor:pointer;
-}
-
 </style>
 </head>
 
 <body>
-
-<!-- ===== WELCOME ONLY (ADDED) ===== -->
-<div id="welcomeOverlay">
-  <h1>🚀 NJR</h1>
-  <p id="welcomeText">Welcome</p>
-  <button id="welcomeBtn">START</button>
-</div>
 
 <div class="top">
   <div class="wallet">🔗 Connect Wallet</div>
@@ -167,35 +126,6 @@ html,body{width:100%;height:100%;overflow:hidden;font-family:'Poppins',system-ui
 <script>
 const tg = window.Telegram.WebApp;
 tg.ready();
-
-/* ===== WELCOME ONLY (ADDED) ===== */
-const tgUser = tg.initDataUnsafe?.user;
-if (tgUser) {
-  const name = tgUser.first_name || "Player";
-  const lang = tgUser.language_code?.startsWith("ar") ? "ar" : "en";
-
-  const texts = {
-    en: {
-      welcome: `Welcome ${name} 👋`,
-      button: "START"
-    },
-    ar: {
-      welcome: `مرحبًا ${name} 👋`,
-      button: "ابدأ"
-    }
-  };
-
-  document.getElementById("welcomeText").innerText = texts[lang].welcome;
-  document.getElementById("welcomeBtn").innerText = texts[lang].button;
-}
-
-document.getElementById("welcomeBtn").onclick = () => {
-  const w = document.getElementById("welcomeOverlay");
-  w.style.transition = "opacity .5s ease";
-  w.style.opacity = "0";
-  setTimeout(()=> w.remove(), 500);
-};
-/* ===== END WELCOME ===== */
 
 const userId = tg.initDataUnsafe?.user?.id || "guest";
 let energy=0, maxEnergy=500, points=0, boost=1;
