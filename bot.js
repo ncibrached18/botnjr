@@ -50,7 +50,7 @@ bot.onText(/\/start/, async (msg) => {
         {
           text: "▶️ START TAPPING",
           web_app: {
-            url: "https://YOUR-APP.onrender.com"
+            url: "https://botnjr.onrender.com"
           }
         }
       ]]
@@ -123,3 +123,4 @@ const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log("Server running on", PORT);
 });
+
