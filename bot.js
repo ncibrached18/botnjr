@@ -28,6 +28,60 @@ const REGEN_RATE = 1.2;
 const FIRST_TIME_GIFT = 2500;   // points awarded to the new user who used a referral link
 const REFERRER_BONUS = 500;     // points awarded to the referrer when someone registers with their link
 
+// meta doc reference
+const META_DOC = db.collection("meta").doc("counters");
+
+// ensure meta doc exists with defaults
+async function ensureMetaDoc() {
+  const snap = await META_DOC.get();
+  if (!snap.exists) {
+    await META_DOC.set({
+      total_share_balance: 0,
+      total_touches: 0,
+      total_players: 0,
+      daily_users: 0,
+      // optional tracking fields
+      total_referrals: 0,
+      updatedAt: Date.now()
+    });
+    console.log("Meta counters created");
+  }
+}
+
+// run ensure on startup
+ensureMetaDoc().catch(err => console.warn("ensureMetaDoc err", err));
+
+// helper: increment meta counters (safe to call outside tx)
+async function incMeta(fields) {
+  return META_DOC.update({
+    ...Object.keys(fields).reduce((acc, k) => {
+      acc[k] = admin.firestore.FieldValue.increment(fields[k]);
+      return acc;
+    }, {}),
+    updatedAt: Date.now()
+  }).catch(async (err) => {
+    // if meta missing, create and retry
+    const s = await META_DOC.get();
+    if (!s.exists) {
+      await META_DOC.set({
+        total_share_balance: 0,
+        total_touches: 0,
+        total_players: 0,
+        daily_users: 0,
+        total_referrals: 0,
+        updatedAt: Date.now()
+      });
+    }
+    return META_DOC.update({
+      ...Object.keys(fields).reduce((acc, k) => {
+        acc[k] = admin.firestore.FieldValue.increment(fields[k]);
+        return acc;
+      }, {}),
+      updatedAt: Date.now()
+    });
+  });
+}
+
 // ================= /start =================
 // Accept optional start payload. payload format supported: r_<referrerId>
 // Example deep-link: https://t.me/NJROfficialBot?start=r_123456789
@@ -54,8 +108,14 @@ bot.onText(/\/start(?:\s(.+))?/, async (msg, match) => {
       // referral related:
       referrer: null,
       referrals: 0,
-      referral_awarded: false
+      referral_awarded: false,
+      referral_bonus_total: 0,
+      touches: 0,
+      lastActive: now,
+      lastDailyActive: 0
     });
+    // increment global players count
+    await incMeta({ total_players: 1 });
   }
 
   // If user does not exist create it
@@ -86,10 +146,11 @@ bot.onText(/\/start(?:\s(.+))?/, async (msg, match) => {
               return;
             }
 
-            // award referrer bonus and increment referrals count
+            // award referrer bonus and increment referrals count and referral_bonus_total
             t.update(referrerRef, {
               points: admin.firestore.FieldValue.increment(REFERRER_BONUS),
-              referrals: admin.firestore.FieldValue.increment(1)
+              referrals: admin.firestore.FieldValue.increment(1),
+              referral_bonus_total: admin.firestore.FieldValue.increment(REFERRER_BONUS)
             });
 
             // award first-time gift to new user and mark awarded
@@ -102,28 +163,51 @@ bot.onText(/\/start(?:\s(.+))?/, async (msg, match) => {
             // add a referral record under referrer's subcollection
             const recRef = referrerRef.collection("referrals").doc(userId);
             t.set(recRef, { uid: userId, at: now });
+
+            // update meta counters inside transaction if possible
+            const metaRef = META_DOC;
+            const metaSnap = await t.get(metaRef);
+            if (metaSnap.exists) {
+              t.update(metaRef, {
+                total_share_balance: admin.firestore.FieldValue.increment(FIRST_TIME_GIFT + REFERRER_BONUS),
+                total_referrals: admin.firestore.FieldValue.increment(1),
+                updatedAt: now
+              });
+            } else {
+              // if meta missing, do nothing here (incMeta will handle)
+            }
           });
 
-          // notify both parties (safe best-effort)
-          try {
-            // notify new user
-            await bot.sendMessage(msg.chat.id, `🎉 مرحبًا! لقد سجّلت عبر رابط إحالة، تلقّيت ${FIRST_TIME_GIFT} نقاط كمكافأة بداية.`);
-          } catch (e) { /* ignore notification errors */ }
+          // If meta doc wasn't updated in tx above (rare), ensure increments
+await incMeta({ total_share_balance: FIRST_TIME_GIFT + REFERRER_BONUS, total_referrals: 1 });
 
-          try {
-            // notify referrer (best-effort, only if bot can message them)
-            await bot.sendMessage(Number(referrerId), `✅ لديك إحالة جديدة! تم إضافة ${REFERRER_BONUS} نقاط لحسابك.`);
-          } catch (e) {
-            // it's normal if bot can't message the referrer (e.g. never started), ignore
-          }
-        } catch (err) {
-          console.error("Referral transaction failed:", err);
-        }
-      } else {
-        // payload was self-referral or invalid — still set referrer field to null
-        await ref.update({ referrer: null }).catch(()=>{});
-      }
-    }
+// notify both parties (safe best-effort)
+try {
+  // notify new user
+  await bot.sendMessage(
+    msg.chat.id,
+    `🎉 Welcome! You registered via a referral link and received ${FIRST_TIME_GIFT} bonus points.`
+  );
+} catch (e) { /* ignore notification errors */ }
+
+try {
+  // notify referrer (best-effort, only if bot can message them)
+  await bot.sendMessage(
+    Number(referrerId),
+    `✅ You have a new referral! ${REFERRER_BONUS} points have been added to your account.`
+  );
+} catch (e) {
+  // it's normal if bot can't message the referrer (e.g. never started), ignore
+}
+} catch (err) {
+  console.error("Referral transaction failed:", err);
+}
+} else {
+  // payload was self-referral or invalid — still set referrer field to null
+  await ref.update({ referrer: null }).catch(()=>{});
+}
+}
+
 
   } else {
     // user exists: optional handling if payload is present and user had no referrer previously
@@ -149,7 +233,8 @@ bot.onText(/\/start(?:\s(.+))?/, async (msg, match) => {
               }
               t.update(referrerRef, {
                 points: admin.firestore.FieldValue.increment(REFERRER_BONUS),
-                referrals: admin.firestore.FieldValue.increment(1)
+                referrals: admin.firestore.FieldValue.increment(1),
+                referral_bonus_total: admin.firestore.FieldValue.increment(REFERRER_BONUS)
               });
               t.update(ref, {
                 points: admin.firestore.FieldValue.increment(FIRST_TIME_GIFT),
@@ -158,9 +243,22 @@ bot.onText(/\/start(?:\s(.+))?/, async (msg, match) => {
               });
               const recRef = referrerRef.collection("referrals").doc(userId);
               t.set(recRef, { uid: userId, at: now });
+
+              const metaRef = META_DOC;
+              const metaSnap = await t.get(metaRef);
+              if (metaSnap.exists) {
+                t.update(metaRef, {
+                  total_share_balance: admin.firestore.FieldValue.increment(FIRST_TIME_GIFT + REFERRER_BONUS),
+                  total_referrals: admin.firestore.FieldValue.increment(1),
+                  updatedAt: now
+                });
+              }
             });
-            try { await bot.sendMessage(msg.chat.id, `🎉 مرحبًا! لقد سجّلت عبر رابط إحالة، تلقّيت ${FIRST_TIME_GIFT} نقاط كمكافأة بداية.`); } catch(e){}
-            try { await bot.sendMessage(Number(referrerId), `✅ لديك إحالة جديدة! تم إضافة ${REFERRER_BONUS} نقاط لحسابك.`); } catch(e){}
+
+            await incMeta({ total_share_balance: FIRST_TIME_GIFT + REFERRER_BONUS, total_referrals: 1 });
+
+            try { await bot.sendMessage(msg.chat.id, `🎉 Welcome! You registered via a referral link and received ${FIRST_TIME_GIFT} bonus points.`); } catch(e){}
+            try { await bot.sendMessage(Number(referrerId), `✅ You have a new referral! ${REFERRER_BONUS} points have been added to your account.`); } catch(e){}
           } catch (err) { console.error("Referral transaction failed (existing user):", err); }
         }
       }
@@ -168,7 +266,7 @@ bot.onText(/\/start(?:\s(.+))?/, async (msg, match) => {
   }
 
   // Always show the main START message and web app button (unchanged behavior)
-  bot.sendMessage(msg.chat.id, "ابدأ اللعب 👇", {
+  bot.sendMessage(msg.chat.id, "Start playing 👇", {
     reply_markup: {
       inline_keyboard: [[
         {
@@ -184,62 +282,181 @@ bot.onText(/\/start(?:\s(.+))?/, async (msg, match) => {
 
 // ================= GET STATE =================
 app.get("/state/:userId", async (req, res) => {
-  const ref = db.collection("users").doc(req.params.userId);
-  const snap = await ref.get();
-  if (!snap.exists) return res.json({ success: false });
+  try {
+    const ref = db.collection("users").doc(req.params.userId);
+    const snap = await ref.get();
+    if (!snap.exists) return res.json({ success: false });
 
-  const user = snap.data();
-  const now = Date.now();
-  const elapsed = Math.floor((now - user.lastEnergyUpdate) / 1000);
+    const user = snap.data();
+    const now = Date.now();
+    const elapsed = Math.floor((now - (user.lastEnergyUpdate || now)) / 1000);
 
-  const energy = Math.min(
-    user.maxEnergy,
-    Math.floor(user.energy + elapsed * user.regenRate)
-  );
+    const energy = Math.min(
+      user.maxEnergy,
+      Math.floor((user.energy || 0) + elapsed * (user.regenRate || REGEN_RATE))
+    );
 
-  res.json({
-    success: true,
-    energy,
-    maxEnergy: user.maxEnergy,
-    points: user.points
-  });
+    res.json({
+      success: true,
+      energy,
+      maxEnergy: user.maxEnergy,
+      points: user.points,
+      referral_bonus_total: user.referral_bonus_total || 0
+    });
+  } catch (err) {
+    console.error("state error", err);
+    res.json({ success: false });
+  }
+});
+
+// ================= REFERRAL INFO ENDPOINT =================
+// Returns referral count, total referral bonus (stored) and recent referrals list
+app.get("/ref/:userId", async (req, res) => {
+  try {
+    const userId = req.params.userId;
+    if (!userId) return res.json({ success: false, message: "missing userId" });
+    const ref = db.collection("users").doc(String(userId));
+    const snap = await ref.get();
+    if (!snap.exists) return res.json({ success: false, message: "user not found" });
+    const data = snap.data();
+    const referralsCount = data.referrals || 0;
+    const refBonusTotal = data.referral_bonus_total || 0;
+
+    // fetch recent referrals list (up to 100)
+    const listSnap = await ref.collection("referrals").orderBy("at", "desc").limit(100).get();
+    const referrals = listSnap.docs.map(d => {
+      const doc = d.data();
+      return {
+        uid: d.id,
+        at: doc.at || null
+      };
+    });
+
+    return res.json({
+      success: true,
+      referrals_count: referralsCount,
+      ref_bonus_total: refBonusTotal,
+      referrals
+    });
+  } catch (err) {
+    console.error("ref endpoint error", err);
+    return res.json({ success: false, message: "internal error" });
+  }
+});
+
+// ================= HEARTBEAT =================
+// Mark user active for daily/online counters
+app.post("/heartbeat/:userId", async (req, res) => {
+  try {
+    const userId = String(req.params.userId);
+    const ref = db.collection("users").doc(userId);
+    const snap = await ref.get();
+    if (!snap.exists) return res.json({ success: false, message: "user not found" });
+
+    const user = snap.data();
+    const now = Date.now();
+    const yesterday = now - 24 * 60 * 60 * 1000;
+
+    const updates = { lastActive: now };
+    // if lastDailyActive is older than today, increment daily_users and update lastDailyActive
+    const lastDaily = user.lastDailyActive || 0;
+    const lastDailyDate = new Date(lastDaily).toDateString();
+    const todayDate = new Date(now).toDateString();
+    if (lastDailyDate !== todayDate) {
+      updates.lastDailyActive = now;
+      // increment meta.daily_users
+      await incMeta({ daily_users: 1 });
+    }
+
+    await ref.update(updates);
+    return res.json({ success: true });
+  } catch (err) {
+    console.error("heartbeat error", err);
+    return res.json({ success: false, message: "internal error" });
+  }
+});
+
+// ================= GLOBAL STATS =================
+// Returns meta counters and computed online players (users active in last N seconds)
+app.get("/global-stats", async (req, res) => {
+  try {
+    const metaSnap = await META_DOC.get();
+    const meta = metaSnap.exists ? metaSnap.data() : {
+      total_share_balance: 0,
+      total_touches: 0,
+      total_players: 0,
+      daily_users: 0,
+      total_referrals: 0
+    };
+
+    // compute online players: users with lastActive within last 60 seconds (configurable)
+    const onlineWindowMs = 60 * 1000; // 60s
+    const cutoff = Date.now() - onlineWindowMs;
+    const usersRef = db.collection("users").where("lastActive", ">", cutoff);
+    const usersSnap = await usersRef.get();
+    const onlinePlayers = usersSnap.size || 0;
+
+    return res.json({
+      success: true,
+      total_share_balance: meta.total_share_balance || 0,
+      total_touches: meta.total_touches || 0,
+      total_players: meta.total_players || 0,
+      daily_users: meta.daily_users || 0,
+      online_players: onlinePlayers,
+      total_referrals: meta.total_referrals || 0
+    });
+  } catch (err) {
+    console.error("global-stats error", err);
+    return res.json({ success: false, message: "internal error" });
+  }
 });
 
 // ================= TAP =================
 app.post("/tap", async (req, res) => {
-  const { user_id } = req.body;
-  const ref = db.collection("users").doc(String(user_id));
-  const snap = await ref.get();
+  try {
+    const { user_id } = req.body;
+    const ref = db.collection("users").doc(String(user_id));
+    const snap = await ref.get();
 
-  if (!snap.exists) return res.json({ success: false });
+    if (!snap.exists) return res.json({ success: false });
 
-  const user = snap.data();
-  const now = Date.now();
+    const user = snap.data();
+    const now = Date.now();
 
-  const elapsed = Math.floor((now - user.lastEnergyUpdate) / 1000);
-  let energy = Math.min(
-    user.maxEnergy,
-    Math.floor(user.energy + elapsed * user.regenRate)
-  );
+    const elapsed = Math.floor((now - (user.lastEnergyUpdate || now)) / 1000);
+    let energy = Math.min(
+      user.maxEnergy,
+      Math.floor((user.energy || 0) + elapsed * (user.regenRate || REGEN_RATE))
+    );
 
-  if (energy <= 0) {
-    return res.json({ success: false, energy });
+    if (energy <= 0) {
+      return res.json({ success: false, energy });
+    }
+
+    energy -= 1;
+    const gain = (user.boost || 1) * (user.multitap || 1);
+
+    // update user and global meta
+    await ref.update({
+      energy,
+      points: admin.firestore.FieldValue.increment(gain),
+      lastEnergyUpdate: now,
+      touches: admin.firestore.FieldValue.increment(1),
+      lastActive: now
+    });
+
+    // increment meta counters
+    await incMeta({ total_touches: 1, total_share_balance: gain });
+
+    res.json({
+      success: true,
+      energy,
+      gain
+    });
+  } catch (err) {
+    console.error("tap error", err);
+    res.json({ success: false });
   }
-
-  energy -= 1;
-  const gain = user.boost * user.multitap;
-
-  await ref.update({
-    energy,
-    points: admin.firestore.FieldValue.increment(gain),
-    lastEnergyUpdate: now
-  });
-
-  res.json({
-    success: true,
-    energy,
-    gain
-  });
 });
 
 // ================= SERVER =================
