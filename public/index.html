@@ -33,7 +33,7 @@ html,body{width:100%;height:100%;overflow:hidden;font-family:'Poppins',system-ui
 .modal{width:92%;max-width:420px;background:linear-gradient(180deg,#1f1826,#2a2237);border-radius:12px;padding:18px;color:#fff;box-shadow:0 8px 30px rgba(0,0,0,.6);}
 .modal h3{margin-bottom:8px;}
 .booster-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:12px 0;}
-.booster-btn{background:rgba(255,255,255,.04);padding:12px;border-radius:10px;cursor:pointer;border:1px solid rgba(255,255,255,.03);display:flex;flex-direction:column;gap:6px;}
+.booster-btn{background:rgba(255,255,255,.04);Padding:12px;border-radius:10px;cursor:pointer;border:1px solid rgba(255,255,255,.03);display:flex;flex-direction:column;gap:6px;}
 .small{font-size:13px;color:#bdb3d6;}
 .purchase-options{display:flex;flex-direction:column;gap:8px;margin-top:10px;}
 .option{display:flex;justify-content:space-between;align-items:center;padding:10px;border-radius:8px;background:rgba(255,255,255,.03);cursor:pointer;}
@@ -279,7 +279,7 @@ document.querySelectorAll('.purchase-options .option').forEach(opt=>{
   opt.addEventListener('click', async ()=> {
     const price = parseFloat(opt.dataset.price);
     const duration = parseInt(opt.dataset.duration,10);
-    // create purchase on server, server will create invoice via Telegram / provider and return payment_url or purchase_id
+    // create purchase on server, server will create invoice via Telegram /provider and return payment_url or purchase_id
     showToast("جارٍ إنشاء الفاتورة...");
     const r = await fetch("/purchase", {method:"POST",headers:{"Content-Type":"application/json"}, body: JSON.stringify({ user_id: userId, price, duration })});
     const j = await r.json();
@@ -358,6 +358,205 @@ coin.addEventListener("click", ()=>{
 // start
 updateUI();
 </script>
+
+<!-- APPEND: Account panel (paste this before the closing </body>) -->
+<style>
+/* Account panel styles (scoped) */
+.account-panel-backdrop{
+  position:fixed;inset:0;display:none;align-items:flex-start;justify-content:center;
+  padding-top:40px;z-index:400;background:linear-gradient(180deg,rgba(6,6,7,.45),rgba(6,6,7,.7));
+  backdrop-filter: blur(6px);
+}
+.account-panel{
+  width:92%;max-width:520px;margin:0 auto;background:linear-gradient(180deg,#241d2b,#2d2436);
+  border-radius:14px;padding:14px 14px 20px;color:#fff;box-shadow:0 12px 40px rgba(0,0,0,.6);
+  border:1px solid rgba(255,255,255,.03);
+  font-family: 'Poppins', system-ui;
+}
+.account-top-tabs{display:flex;gap:8px;background:rgba(255,255,255,.02);padding:8px;border-radius:12px;align-items:center;justify-content:center;margin-bottom:12px;}
+.account-tab-btn{flex:1;padding:8px 12px;border-radius:10px;text-align:center;color:#cfc1e8;font-weight:600;cursor:pointer;border:1px solid transparent;}
+.account-tab-btn.active{background:linear-gradient(180deg,#3a2f48,#442f53);color:#fff;border:1px solid rgba(255,255,255,.04);box-shadow:0 6px 18px rgba(0,0,0,.45);}
+.account-section{padding:8px 6px;min-height:220px;}
+.account-stats{display:flex;flex-direction:column;gap:18px;align-items:center;padding-top:6px;}
+.stat-row{text-align:center;}
+.stat-title{color:#bfb1d8;font-size:13px;margin-bottom:6px;}
+.stat-value{font-weight:800;font-size:22px;letter-spacing:2px;color:#fff;text-shadow:0 6px 18px rgba(0,0,0,.6);}
+.invite-card{background:linear-gradient(180deg,rgba(255,255,255,.02),rgba(255,255,255,.01));padding:12px;border-radius:12px;border:1px solid rgba(255,255,255,.03);display:flex;gap:12px;align-items:center;justify-content:space-between;}
+.invite-left{flex:1;color:#e6dff6;}
+.invite-label{font-weight:700;margin-bottom:6px;color:#fff;}
+.invite-link{font-size:13px;color:#cfc1e8;word-break:break-all;opacity:.95;}
+.copy-btn{background:#6f4bd8;color:#fff;padding:8px 12px;border-radius:10px;border:none;cursor:pointer;font-weight:700;}
+.ref-list{margin-top:12px;padding-top:6px;color:#d9cfe9;}
+.settings-list{display:flex;flex-direction:column;gap:10px;}
+.settings-item{background:rgba(255,255,255,.02);padding:12px;border-radius:10px;display:flex;justify-content:space-between;align-items:center;cursor:pointer;border:1px solid rgba(255,255,255,.02);}
+.close-panel{position:absolute;right:18px;top:12px;color:#cfc1e8;cursor:pointer;font-weight:700;}
+.no-ref{padding:24px 6px;text-align:center;color:#d6cfe6;}
+.account-small{font-size:13px;color:#bfb1d8;margin-bottom:6px;}
+/* small responsive tweak */
+@media (min-width:720px){ .account-panel{margin-top:48px;} }
+</style>
+
+<div class="account-panel-backdrop" id="accountPanelBackdrop" aria-hidden="true">
+  <div class="account-panel" role="dialog" aria-modal="true" aria-labelledby="accountTitle">
+    <div style="position:relative;">
+      <div id="accountTitle" style="font-weight:800;font-size:16px;color:#fff;margin-bottom:8px;">Account</div>
+      <div class="close-panel" id="closeAccountPanel">✕</div>
+    </div>
+
+    <div class="account-top-tabs" role="tablist" aria-label="Account tabs">
+      <div class="account-tab-btn" data-tab="ref">Ref</div>
+      <div class="account-tab-btn active" data-tab="stats">Stats</div>
+      <div class="account-tab-btn" data-tab="settings">Settings</div>
+    </div>
+
+    <div class="account-section" id="accountSection">
+      <!-- STATS (default active) -->
+      <div class="account-content" data-content="stats" style="display:block;">
+        <div class="account-stats">
+          <div class="stat-row">
+            <div class="stat-title">Total Share Balance:</div>
+            <div class="stat-value" id="statShare">—</div>
+          </div>
+          <div class="stat-row">
+            <div class="stat-title">Total Touches:</div>
+            <div class="stat-value" id="statTouches">—</div>
+          </div>
+          <div class="stat-row">
+            <div class="stat-title">Total Players:</div>
+            <div class="stat-value" id="statPlayers">—</div>
+          </div>
+          <div class="stat-row">
+            <div class="stat-title">Daily Users:</div>
+            <div class="stat-value" id="statDaily">—</div>
+          </div>
+          <div class="stat-row">
+            <div class="stat-title">Online Players:</div>
+            <div class="stat-value" id="statOnline">—</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- REF -->
+      <div class="account-content" data-content="ref" style="display:none;">
+        <div class="account-small">My ref bonus: <span id="myRefBonus">0</span></div>
+        <div class="account-small">My ref: <span id="myRefCount">0</span></div>
+
+        <div class="invite-card" style="margin-top:8px;">
+          <div class="invite-left">
+            <div class="invite-label">My invite link:</div>
+            <div class="invite-link" id="inviteLink">—</div>
+          </div>
+          <div>
+            <button class="copy-btn" id="copyInviteBtn">Copy</button>
+          </div>
+        </div>
+
+        <div class="ref-list">
+          <div style="font-weight:800;margin-top:12px;">My Referals list:</div>
+          <div class="no-ref" id="noRefText">You don't have referrals 😭</div>
+          <div id="refListContainer" style="display:none;"></div>
+        </div>
+      </div>
+
+      <!-- SETTINGS -->
+      <div class="account-content" data-content="settings" style="display:none;">
+        <div class="settings-list">
+          <div class="settings-item" role="button" id="privacyBtn">Privacy Policy <span>›</span></div>
+          <div class="settings-item" role="button" id="termsBtn">Terms of Use <span>›</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// Account panel behavior (uses existing userId variable from your script)
+(function(){
+  const backdrop = document.getElementById('accountPanelBackdrop');
+  const closeBtn = document.getElementById('closeAccountPanel');
+  const tabs = document.querySelectorAll('.account-tab-btn');
+  const contents = document.querySelectorAll('.account-content');
+
+  // open when pressing the Account nav (third .nav)
+  const accountNav = document.querySelector('.bottom .nav:nth-child(3)');
+  if(accountNav){
+    accountNav.addEventListener('click', ()=> openAccountPanel());
+  }
+
+  function openAccountPanel(){
+    // fill invite link using userId (existing var in page)
+    const inviteEl = document.getElementById('inviteLink');
+    try{
+      const botUsername = 'NJROfficialBot'; // <= تم تغييره إلى بوتك
+      const uid = (typeof userId !== 'undefined') ? userId : 'guest';
+      const link = `https://t.me/${botUsername}?start=r_${uid}`;
+      inviteEl.innerText = link;
+      inviteEl.setAttribute('data-link', link);
+    }catch(e){
+      inviteEl.innerText = 'https://t.me/YOUR-BOT?start=r_XXXXX';
+    }
+
+    // default stats values (you can later populate by fetching an endpoint)
+    document.getElementById('statShare').innerText = '9710702162713';
+    document.getElementById('statTouches').innerText = '106 056 491 953';
+    document.getElementById('statPlayers').innerText = '74 839 124';
+    document.getElementById('statDaily').innerText = '22 010';
+    document.getElementById('statOnline').innerText = '318';
+
+    backdrop.style.display = 'flex';
+    backdrop.setAttribute('aria-hidden','false');
+  }
+
+  function closePanel(){
+    backdrop.style.display = 'none';
+    backdrop.setAttribute('aria-hidden','true');
+  }
+
+  closeBtn.addEventListener('click', closePanel);
+  backdrop.addEventListener('click', (e)=>{
+    if(e.target === backdrop) closePanel();
+  });
+
+  // tab switching
+  tabs.forEach(t=>{
+    t.addEventListener('click', ()=>{
+      tabs.forEach(x=>x.classList.remove('active'));
+      t.classList.add('active');
+      const target = t.getAttribute('data-tab');
+      contents.forEach(c=>{
+        if(c.getAttribute('data-content') === target) c.style.display = 'block';
+        else c.style.display = 'none';
+      });
+    });
+  });
+
+  // copy invite
+  const copyBtn = document.getElementById('copyInviteBtn');
+  copyBtn.addEventListener('click', async ()=>{
+    const link = document.getElementById('inviteLink').getAttribute('data-link') || document.getElementById('inviteLink').innerText;
+    try{
+      await navigator.clipboard.writeText(link);
+      // small toast reuse if present
+      if(typeof showToast === 'function') showToast('Invite link copied');
+      else alert('Invite link copied');
+    }catch(e){
+      if(typeof showToast === 'function') showToast('Copy failed');
+      else alert('Copy failed');
+    }
+  });
+
+  // settings items (open external pages or show toast)
+  document.getElementById('privacyBtn').addEventListener('click', ()=>{
+    if(typeof showToast === 'function') showToast('Open Privacy Policy');
+    // you can redirect or open a modal here
+  });
+  document.getElementById('termsBtn').addEventListener('click', ()=>{
+    if(typeof showToast === 'function') showToast('Open Terms of Use');
+    // you can redirect or open a modal here
+  });
+})();
+</script>
+<!-- END APPEND -->
 
 </body>
 </html>
