@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="ar">
+<html lang="en">
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
@@ -8,355 +8,129 @@
 <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap" rel="stylesheet">
 
 <style>
-/* نفس CSS الأصلي مع إضافات للمودال والوميض */
-*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color: transparent;}
-html,body{width:100%;height:100%;overflow:hidden;font-family:'Poppins',system-ui;background: radial-gradient(circle at top,#2e2440,#1a1426);color:#fff;}
-.top{display:flex;align-items:center;justify-content:space-between;padding:14px 16px;}
-.wallet{background:rgba(255,255,255,.08);padding:10px 14px;border-radius:14px;font-size:14px;}
-.balance{display:flex;align-items:center;gap:10px;background:rgba(255,255,255,.08);padding:10px 14px;border-radius:14px;font-weight:700;}
-.balance span{color:#22f3c8;}
-.center{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;position:relative;}
-.coin{width:280px;height:280px;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:transform .1s ease;user-select:none;position:relative;}
-.coin:active{transform:scale(.95);}
-.coin img{width:100%;height:100%;object-fit:contain;user-select:none;pointer-events:none;}
-.plus{position:absolute;color:#ffffff;font-weight:700;font-size:22px;animation:floatUp .9s ease forwards;pointer-events:none;}
-@keyframes floatUp{from{opacity:1;transform:translateY(0)} to{opacity:0;transform:translateY(-80px)}}
-.energy-boost{margin-top:26px;display:flex;gap:14px;}
-.box{background:rgba(255,255,255,.08);padding:12px 18px;border-radius:14px;font-weight:600;}
-.boost{ color:#ff9b2f }
-.bottom{position:fixed;bottom:12px;left:12px;right:12px;background:rgba(255,255,255,.07);border-radius:18px;padding:10px;display:flex;justify-content:space-around;}
-.nav{display:flex;flex-direction:column;align-items:center;gap:6px;font-size:13px;opacity:.7;}
-.nav.active{opacity:1;color:#ffbf5a;}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{width:100%;height:100%;overflow:hidden;font-family:'Poppins',system-ui;background:radial-gradient(circle at top,#2e2440,#1a1426);color:#fff}
 
-/* ====== BOOST MODAL ====== */
-.modal-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.5);display:none;align-items:center;justify-content:center;z-index:200;}
-.modal{width:92%;max-width:420px;background:linear-gradient(180deg,#1f1826,#2a2237);border-radius:12px;padding:18px;color:#fff;box-shadow:0 8px 30px rgba(0,0,0,.6);}
-.modal h3{margin-bottom:8px;}
-.booster-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:12px 0;}
-.booster-btn{background:rgba(255,255,255,.04);padding:12px;border-radius:10px;cursor:pointer;border:1px solid rgba(255,255,255,.03);display:flex;flex-direction:column;gap:6px;}
-.small{font-size:13px;color:#bdb3d6;}
-.purchase-options{display:flex;flex-direction:column;gap:8px;margin-top:10px;}
-.option{display:flex;justify-content:space-between;align-items:center;padding:10px;border-radius:8px;background:rgba(255,255,255,.03);cursor:pointer;}
-.btn{background:#ffbf5a;color:#000;padding:8px 12px;border-radius:8px;border:none;cursor:pointer;font-weight:700;}
-.btn.ghost{background:transparent;border:1px solid rgba(255,255,255,.08);color:#fff;}
-
-/* ===== LIGHTNING EFFECT ON COIN ===== */
-.coin.lightning::after{
-  content:"";
-  position:absolute;inset:0;border-radius:50%;
-  box-shadow:0 0 30px 8px rgba(255,255,120,.25), inset 0 0 40px rgba(255,255,255,.08);
-  animation:thunder 0.12s linear infinite;
-  pointer-events:none;
+/* ===== WELCOME ===== */
+#welcome{
+  position:fixed;inset:0;
+  background:radial-gradient(circle at top,#2e2440,#1a1426);
+  display:flex;align-items:center;justify-content:center;
+  flex-direction:column;gap:16px;
+  z-index:999;
 }
-@keyframes thunder{
-  0%{filter:brightness(1)}
-  50%{filter:brightness(2)}
-  100%{filter:brightness(1)}
-}
+#welcome h1{font-size:28px;font-weight:800}
+#welcome p{opacity:.8;font-size:16px}
 
-/* small countdown badge */
-.effect-badge{position:absolute;top:8px;right:8px;background:rgba(0,0,0,.4);padding:6px 8px;border-radius:10px;font-size:12px;border:1px solid rgba(255,255,255,.06);}
-.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:80px;background:#111;padding:10px 14px;border-radius:8px;color:#fff;box-shadow:0 6px 20px rgba(0,0,0,.6);display:none;z-index:300;}
+/* ===== UI ===== */
+.top{display:flex;justify-content:space-between;padding:14px 16px}
+.wallet,.balance{background:rgba(255,255,255,.08);padding:10px 14px;border-radius:14px}
+.balance span{color:#22f3c8;font-weight:700}
+
+.center{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center}
+.coin{width:260px;height:260px;cursor:pointer}
+.coin img{width:100%;height:100%;object-fit:contain}
+.energy{margin-top:20px;background:rgba(255,255,255,.08);padding:10px 18px;border-radius:14px}
+
+.bottom{position:fixed;bottom:12px;left:12px;right:12px;
+background:rgba(255,255,255,.07);border-radius:18px;
+display:flex;justify-content:space-around;padding:10px;font-size:13px}
 </style>
 </head>
 
 <body>
 
+<!-- WELCOME -->
+<div id="welcome">
+  <h1>🚀 NJR</h1>
+  <p id="welcomeText"></p>
+</div>
+
+<!-- GAME -->
 <div class="top">
-  <div class="wallet">🔗 Connect Wallet</div>
-  <div class="balance">NJR <span id="points">1525</span></div>
+  <div class="wallet">🔗 Wallet</div>
+  <div class="balance">NJR <span id="points">0</span></div>
 </div>
 
 <div class="center">
   <div class="coin" id="coin">
     <img src="logo.png" alt="NJR">
-    <div class="effect-badge" id="effectBadge" style="display:none"></div>
   </div>
-
-  <div class="energy-boost">
-    <div class="box">⚡ <span id="energy">474</span> / <span id="maxEnergy">500</span></div>
-    <div class="box boost" id="openBoostBtn">🔥 Boost</div>
+  <div class="energy">
+    ⚡ <span id="energy">0</span> / <span id="maxEnergy">500</span>
   </div>
 </div>
 
 <div class="bottom">
-  <div class="nav active">💰<div>Earn</div></div>
-  <div class="nav">✅<div>Tasks</div></div>
-  <div class="nav">👤<div>Account</div></div>
-  <div class="nav">💳<div>Cashier</div></div>
+  <div>💰 Earn</div>
+  <div>✅ Tasks</div>
+  <div>👤 Account</div>
+  <div>💳 Cashier</div>
 </div>
-
-<!-- MODAL -->
-<div class="modal-backdrop" id="modalBackdrop">
-  <div class="modal" role="dialog" aria-modal="true">
-    <h3>Boosts & Purchases</h3>
-    <div class="small">Your daily boosters: <span id="dailyInfo">—</span></div>
-
-    <div style="margin-top:12px;">
-      <div style="display:flex;gap:8px;">
-        <div class="booster-btn" id="btnFullTank">
-          <div style="font-weight:800">⚡ Full Tank</div>
-          <div class="small">يملىء الطاقة فوراً (3/يوم)</div>
-        </div>
-        <div class="booster-btn" id="btnTaping">
-          <div style="font-weight:800">🔥 Taping Guru</div>
-          <div class="small">مضاعف النقر ×2 لمدة 10 ثواني (3/يوم)</div>
-        </div>
-      </div>
-
-      <div style="margin-top:14px;">
-        <div style="font-weight:700;margin-bottom:6px;">Boost ×2 (اشتري مدة)</div>
-        <div class="purchase-options">
-          <div class="option" data-price="0.5" data-duration="3600"><div>×2 — 1 ساعة</div><div>$0.5</div></div>
-          <div class="option" data-price="1" data-duration="14400"><div>×2 — 4 ساعات</div><div>$1</div></div>
-          <div class="option" data-price="4" data-duration="28800"><div>×2 — 8 ساعات</div><div>$4</div></div>
-        </div>
-      </div>
-
-      <div style="display:flex;gap:8px;margin-top:12px;justify-content:flex-end;">
-        <button class="btn ghost" id="closeModal">إلغاء</button>
-      </div>
-    </div>
-  </div>
-</div>
-
-<div class="toast" id="toast"></div>
 
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 <script>
 const tg = window.Telegram.WebApp;
 tg.ready();
 
-const userId = tg.initDataUnsafe?.user?.id || "guest";
-let energy=0, maxEnergy=500, points=0, boost=1;
-let displayedEnergy=0, displayedPoints=0;
-let pendingGain=0;
-let initialLoaded=false;
-
-// activeEffects from server: {type:"taping"|"x2", expires_at: timestamp (ms)}
-let activeEffects = [];
-let localMultiplier = 1; // used for client immediate tap multiplier
-
-// helper: toast
-function showToast(msg, timeout=2000){
-  const t = document.getElementById("toast");
-  t.innerText = msg;
-  t.style.display = "block";
-  clearTimeout(t._to);
-  t._to = setTimeout(()=> t.style.display = "none", timeout);
+/* ===== SECURITY: MUST OPEN FROM TELEGRAM ===== */
+if(!tg.initDataUnsafe || !tg.initDataUnsafe.user){
+  document.body.innerHTML = `
+    <div style="
+      display:flex;height:100vh;
+      align-items:center;justify-content:center;
+      text-align:center;font-size:18px">
+      ❌ Please open this app from Telegram
+    </div>`;
+  throw new Error("Not Telegram WebApp");
 }
 
-// animate number (same helper as قبل)
-function animateNumber(from,to,onStep,duration=400){
-  if(from===to){ onStep(to); return Promise.resolve(); }
-  return new Promise(resolve=>{
-    const start = performance.now();
-    const sign = to>from?1:-1;
-    const range = Math.abs(to-from);
-    function step(now){
-      const t = Math.min(1,(now-start)/duration);
-      const eased = 1 - Math.pow(1 - t, 2);
-      const current = from + sign * Math.round(range * eased);
-      onStep(current);
-      if(t<1) requestAnimationFrame(step);
-      else { onStep(to); resolve(); }
-    }
-    requestAnimationFrame(step);
-  });
-}
+/* ===== USER DATA ===== */
+const user = tg.initDataUnsafe.user;
+const userId = user.id;
+const userName = user.first_name || "Player";
+const lang = user.language_code?.startsWith("ar") ? "ar" : "en";
 
-function updateUI(){
-  document.getElementById("energy").innerText = Math.max(0, Math.floor(displayedEnergy));
-  document.getElementById("maxEnergy").innerText = maxEnergy;
-  document.getElementById("points").innerText = Math.floor(displayedPoints);
-  // update effect badge
-  const badge = document.getElementById("effectBadge");
-  const now = Date.now();
-  const active = activeEffects.find(e=> e.expires_at > now);
-  if(active){
-    const rem = Math.ceil((active.expires_at - now)/1000);
-    badge.innerText = `${active.type === 'taping' ? '×2 (T)' : '×2 (B)'} ${rem}s`;
-    badge.style.display = "block";
-    document.getElementById("coin").classList.add("lightning");
-  } else {
-    badge.style.display = "none";
-    document.getElementById("coin").classList.remove("lightning");
-  }
-}
+/* ===== WELCOME TEXT ===== */
+const texts = {
+  en: `Welcome ${userName}!`,
+  ar: `مرحبًا ${userName}!`
+};
 
-// ====== state polling (keeps server authoritative values & active effects) ======
-let pollInterval = 2000; let pollTimer=null;
-async function fetchStateOnce(){
-  try{
-    const r = await fetch(`/state/${userId}`);
-    return await r.json();
-  }catch(e){ console.warn("state fetch failed",e); return null; }
-}
+document.getElementById("welcomeText").innerText = texts[lang];
 
-async function pollState(){
-  const data = await fetchStateOnce();
-  if(!data || !data.success) return;
-  // update server authoritative
-  const prevPoints = points;
-  energy = data.energy; maxEnergy = data.maxEnergy; points = data.points;
-  // active effects list from server (array of {type,expires_at})
-  activeEffects = (data.active_effects || []).map(e=> ({...e, expires_at: e.expires_at}));
-  // reduce pendingGain by confirmed increment
-  const confirmedGain = Math.max(0, points - prevPoints);
-  pendingGain = Math.max(0, pendingGain - confirmedGain);
-  // reconcile
-  const targetDisplayedPoints = points + pendingGain;
-  if(!initialLoaded){
-    displayedEnergy = energy; displayedPoints = targetDisplayedPoints; initialLoaded=true; updateUI();
-  } else {
-    animateNumber(displayedEnergy, energy, v=>{ displayedEnergy = v; updateUI(); }, 300);
-    animateNumber(displayedPoints, targetDisplayedPoints, v=>{ displayedPoints = v; updateUI(); }, 300);
-  }
-  // set local multiplier based on activeEffects
-  const now = Date.now();
-  const tapEffect = activeEffects.find(e=> e.type === 'taping' && e.expires_at > now);
-  const x2Effect = activeEffects.find(e=> e.type === 'x2' && e.expires_at > now);
-  localMultiplier = (tapEffect || x2Effect) ? 2 : 1;
-}
+/* hide welcome */
+setTimeout(()=>{
+  const w = document.getElementById("welcome");
+  w.style.transition="opacity .6s ease";
+  w.style.opacity="0";
+  setTimeout(()=>w.remove(),600);
+},1600);
 
-function startPolling(){
-  if(pollTimer) return;
-  pollState();
-  pollTimer = setInterval(pollState, pollInterval);
-  document.addEventListener('visibilitychange', ()=>{
-    if(document.hidden){ clearInterval(pollTimer); pollTimer=null; }
-    else startPolling();
-  });
-}
-startPolling();
-
-// ====== Boost modal UI handling ======
-const modalBackdrop = document.getElementById("modalBackdrop");
-document.getElementById("openBoostBtn").addEventListener("click", ()=> {
-  // show daily info (server-limited counts)
-  fetch(`/daily-info/${userId}`).then(r=>r.json()).then(d=>{
-    if(d?.success){
-      document.getElementById("dailyInfo").innerText = `Taping ${d.taping_used}/3 · FullTank ${d.fulltank_used}/3`;
-    } else {
-      document.getElementById("dailyInfo").innerText = '—';
-    }
-    modalBackdrop.style.display = "flex";
-  }).catch(()=>{ modalBackdrop.style.display="flex"; });
-});
-document.getElementById("closeModal").addEventListener("click", ()=> modalBackdrop.style.display="none");
-
-// Full Tank
-document.getElementById("btnFullTank").addEventListener("click", async ()=>{
-  showToast("طلب Full Tank...");
-  const res = await fetch("/boost/full", {method:"POST",headers:{"Content-Type":"application/json"}, body: JSON.stringify({user_id:userId})});
+/* ===== LOAD STATE ===== */
+async function loadState(){
+  const res = await fetch(`/state/${userId}`);
   const data = await res.json();
-  if(!data.success){ showToast(data.message || "فشل تفعيل"); return; }
-  // server returns new energy
-  energy = data.energy; points = data.points || points;
-  // reconcile display
-  pendingGain = 0;
-  animateNumber(displayedEnergy, energy, v=>{ displayedEnergy=v; updateUI(); }, 300);
-  animateNumber(displayedPoints, points, v=>{ displayedPoints=v; updateUI(); }, 300);
-  showToast("تم ملء الطاقة");
-});
+  if(!data.success) return;
+  document.getElementById("energy").innerText = data.energy;
+  document.getElementById("maxEnergy").innerText = data.maxEnergy;
+  document.getElementById("points").innerText = data.points;
+}
+loadState();
 
-// Taping Guru (10s ×2)
-document.getElementById("btnTaping").addEventListener("click", async ()=>{
-  showToast("تفعيل Taping Guru...");
-  const res = await fetch("/boost/taping", {method:"POST",headers:{"Content-Type":"application/json"}, body: JSON.stringify({user_id:userId})});
-  const data = await res.json();
-  if(!data.success){ showToast(data.message || "فشل التفعيل"); return; }
-  // server returns effect with expires_at
-  activeEffects = data.active_effects || activeEffects;
-  // update local multiplier and UI immediately
-  localMultiplier = 2;
-  updateUI();
-  showToast("Taping Guru مفعّل لمدة 10 ثواني");
-});
-
-// Purchase options
-document.querySelectorAll('.purchase-options .option').forEach(opt=>{
-  opt.addEventListener('click', async ()=> {
-    const price = parseFloat(opt.dataset.price);
-    const duration = parseInt(opt.dataset.duration,10);
-    // create purchase on server, server will create invoice via Telegram / provider and return payment_url or purchase_id
-    showToast("جارٍ إنشاء الفاتورة...");
-    const r = await fetch("/purchase", {method:"POST",headers:{"Content-Type":"application/json"}, body: JSON.stringify({ user_id: userId, price, duration })});
-    const j = await r.json();
-    if(!j.success){ showToast(j.message || "خطأ إنشاء الفاتورة"); return; }
-    // j.payment_url or j.purchase_id provided
-    if(j.payment_url){
-      // open payment url (user completes via Telegram wallet or payment page)
-      window.open(j.payment_url, "_blank");
-    }
-    // poll status until confirmed or timeout
-    showToast("انتظر تأكيد الدفع...");
-    const purchaseId = j.purchase_id;
-    const start = Date.now();
-    const timeout = 2*60*1000; // 2 minutes
-    const poll = setInterval(async ()=>{
-      const sres = await fetch(`/purchase/status/${purchaseId}`);
-      const sj = await sres.json();
-      if(sj.success && sj.status === 'paid'){
-        clearInterval(poll);
-        showToast("تم الدفع وتفعيل ×2 فوراً");
-        // server should have added an active_effect of type 'x2'
-        await pollState(); // force refresh
-        modalBackdrop.style.display = "none";
-      } else if(Date.now() - start > timeout){
-        clearInterval(poll);
-        showToast("انتهى وقت الدفع أو لم يُكمل المستخدم الدفع");
-      }
-    }, 2000);
+/* ===== TAP ===== */
+document.getElementById("coin").addEventListener("click", async ()=>{
+  const res = await fetch("/tap",{
+    method:"POST",
+    headers:{ "Content-Type":"application/json" },
+    body:JSON.stringify({ user_id:userId })
   });
+  const data = await res.json();
+  if(!data.success) return;
+  document.getElementById("energy").innerText = data.energy;
+  document.getElementById("points").innerText =
+    Number(document.getElementById("points").innerText) + data.gain;
 });
-
-// ====== TAP logic (uses localMultiplier) ======
-const coin = document.getElementById("coin");
-coin.addEventListener("click", ()=>{
-  if(Math.floor(displayedEnergy) <= 0) return;
-  // visual + float
-  const p = document.createElement("div");
-  p.className = "plus";
-  p.innerText = `+${boost * localMultiplier}`;
-  const r = coin.getBoundingClientRect();
-  p.style.left = (r.left + r.width/2) + "px";
-  p.style.top = (r.top + r.height/2) + "px";
-  document.body.appendChild(p);
-  setTimeout(()=>p.remove(),900);
-  if(navigator.vibrate) navigator.vibrate(20);
-
-  // optimistic UI
-  displayedEnergy = Math.max(0, displayedEnergy - 1);
-  pendingGain += (boost * localMultiplier);
-  displayedPoints = points + pendingGain;
-  updateUI();
-
-  // send tap to server (server will check active effects and reply gain & new energy)
-  fetch("/tap", {method:"POST",headers:{"Content-Type":"application/json"},body: JSON.stringify({user_id:userId})})
-    .then(r=>r.json())
-    .then(data=>{
-      if(!data.success){
-        // rollback by fetching state
-        pollState();
-        return;
-      }
-      // server confirms: update authoritative
-      energy = data.energy;
-      points += data.gain;
-      pendingGain = Math.max(0, pendingGain - data.gain);
-      // reconcile displays
-      animateNumber(displayedEnergy, energy, v=>{ displayedEnergy=v; updateUI(); }, 300);
-      animateNumber(displayedPoints, points + pendingGain, v=>{ displayedPoints=v; updateUI(); }, 300);
-    }).catch(err=>{
-      console.warn("tap error",err);
-      // on error refresh
-      pollState();
-    });
-});
-
-// start
-updateUI();
 </script>
 
 </body>
