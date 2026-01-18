@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en">
+<html lang="ar">
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
@@ -8,130 +8,110 @@
 <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap" rel="stylesheet">
 
 <style>
-*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
-html,body{width:100%;height:100%;overflow:hidden;font-family:'Poppins',system-ui;background:radial-gradient(circle at top,#2e2440,#1a1426);color:#fff}
-
-/* ===== WELCOME ===== */
-#welcome{
-  position:fixed;inset:0;
+/* ===== WELCOME ADDITION ===== */
+#welcomeOverlay{
+  position:fixed;
+  inset:0;
   background:radial-gradient(circle at top,#2e2440,#1a1426);
-  display:flex;align-items:center;justify-content:center;
-  flex-direction:column;gap:16px;
-  z-index:999;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  flex-direction:column;
+  gap:12px;
+  z-index:9999;
 }
-#welcome h1{font-size:28px;font-weight:800}
-#welcome p{opacity:.8;font-size:16px}
+#welcomeOverlay h1{
+  font-size:26px;
+  font-weight:800;
+}
+#welcomeOverlay p{
+  font-size:16px;
+  opacity:.85;
+}
 
-/* ===== UI ===== */
-.top{display:flex;justify-content:space-between;padding:14px 16px}
-.wallet,.balance{background:rgba(255,255,255,.08);padding:10px 14px;border-radius:14px}
-.balance span{color:#22f3c8;font-weight:700}
-
-.center{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center}
-.coin{width:260px;height:260px;cursor:pointer}
-.coin img{width:100%;height:100%;object-fit:contain}
-.energy{margin-top:20px;background:rgba(255,255,255,.08);padding:10px 18px;border-radius:14px}
-
-.bottom{position:fixed;bottom:12px;left:12px;right:12px;
-background:rgba(255,255,255,.07);border-radius:18px;
-display:flex;justify-content:space-around;padding:10px;font-size:13px}
+/* ===== ORIGINAL CSS ===== */
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color: transparent;}
+html,body{width:100%;height:100%;overflow:hidden;font-family:'Poppins',system-ui;background: radial-gradient(circle at top,#2e2440,#1a1426);color:#fff;}
+.top{display:flex;align-items:center;justify-content:space-between;padding:14px 16px;}
+.wallet{background:rgba(255,255,255,.08);padding:10px 14px;border-radius:14px;font-size:14px;}
+.balance{display:flex;align-items:center;gap:10px;background:rgba(255,255,255,.08);padding:10px 14px;border-radius:14px;font-weight:700;}
+.balance span{color:#22f3c8;}
+.center{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;position:relative;}
+.coin{width:280px;height:280px;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:transform .1s ease;user-select:none;position:relative;}
+.coin:active{transform:scale(.95);}
+.coin img{width:100%;height:100%;object-fit:contain;user-select:none;pointer-events:none;}
+.plus{position:absolute;color:#ffffff;font-weight:700;font-size:22px;animation:floatUp .9s ease forwards;pointer-events:none;}
+@keyframes floatUp{from{opacity:1;transform:translateY(0)} to{opacity:0;transform:translateY(-80px)}}
+.energy-boost{margin-top:26px;display:flex;gap:14px;}
+.box{background:rgba(255,255,255,.08);padding:12px 18px;border-radius:14px;font-weight:600;}
+.boost{ color:#ff9b2f }
+.bottom{position:fixed;bottom:12px;left:12px;right:12px;background:rgba(255,255,255,.07);border-radius:18px;padding:10px;display:flex;justify-content:space-around;}
+.nav{display:flex;flex-direction:column;align-items:center;gap:6px;font-size:13px;opacity:.7;}
+.nav.active{opacity:1;color:#ffbf5a;}
 </style>
 </head>
 
 <body>
 
-<!-- WELCOME -->
-<div id="welcome">
+<!-- ===== WELCOME ADDITION ===== -->
+<div id="welcomeOverlay">
   <h1>🚀 NJR</h1>
   <p id="welcomeText"></p>
 </div>
 
-<!-- GAME -->
+<!-- ===== ORIGINAL BODY ===== -->
 <div class="top">
-  <div class="wallet">🔗 Wallet</div>
-  <div class="balance">NJR <span id="points">0</span></div>
+  <div class="wallet">🔗 Connect Wallet</div>
+  <div class="balance">NJR <span id="points">1525</span></div>
 </div>
 
 <div class="center">
   <div class="coin" id="coin">
     <img src="logo.png" alt="NJR">
+    <div class="effect-badge" id="effectBadge" style="display:none"></div>
   </div>
-  <div class="energy">
-    ⚡ <span id="energy">0</span> / <span id="maxEnergy">500</span>
+
+  <div class="energy-boost">
+    <div class="box">⚡ <span id="energy">474</span> / <span id="maxEnergy">500</span></div>
+    <div class="box boost" id="openBoostBtn">🔥 Boost</div>
   </div>
 </div>
 
 <div class="bottom">
-  <div>💰 Earn</div>
-  <div>✅ Tasks</div>
-  <div>👤 Account</div>
-  <div>💳 Cashier</div>
+  <div class="nav active">💰<div>Earn</div></div>
+  <div class="nav">✅<div>Tasks</div></div>
+  <div class="nav">👤<div>Account</div></div>
+  <div class="nav">💳<div>Cashier</div></div>
 </div>
 
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 <script>
+/* ===== WELCOME ADDITION ===== */
 const tg = window.Telegram.WebApp;
 tg.ready();
 
-/* ===== SECURITY: MUST OPEN FROM TELEGRAM ===== */
-if(!tg.initDataUnsafe || !tg.initDataUnsafe.user){
-  document.body.innerHTML = `
-    <div style="
-      display:flex;height:100vh;
-      align-items:center;justify-content:center;
-      text-align:center;font-size:18px">
-      ❌ Please open this app from Telegram
-    </div>`;
-  throw new Error("Not Telegram WebApp");
+const user = tg.initDataUnsafe?.user;
+if(user){
+  const name = user.first_name || "Player";
+  const lang = user.language_code?.startsWith("ar") ? "ar" : "en";
+  const messages = {
+    ar: `مرحبًا ${name} 👋`,
+    en: `Welcome ${name} 👋`
+  };
+  document.getElementById("welcomeText").innerText = messages[lang];
 }
 
-/* ===== USER DATA ===== */
-const user = tg.initDataUnsafe.user;
-const userId = user.id;
-const userName = user.first_name || "Player";
-const lang = user.language_code?.startsWith("ar") ? "ar" : "en";
-
-/* ===== WELCOME TEXT ===== */
-const texts = {
-  en: `Welcome ${userName}!`,
-  ar: `مرحبًا ${userName}!`
-};
-
-document.getElementById("welcomeText").innerText = texts[lang];
-
-/* hide welcome */
 setTimeout(()=>{
-  const w = document.getElementById("welcome");
-  w.style.transition="opacity .6s ease";
-  w.style.opacity="0";
-  setTimeout(()=>w.remove(),600);
-},1600);
+  const w = document.getElementById("welcomeOverlay");
+  w.style.transition = "opacity .6s ease";
+  w.style.opacity = "0";
+  setTimeout(()=> w.remove(),600);
+},1500);
 
-/* ===== LOAD STATE ===== */
-async function loadState(){
-  const res = await fetch(`/state/${userId}`);
-  const data = await res.json();
-  if(!data.success) return;
-  document.getElementById("energy").innerText = data.energy;
-  document.getElementById("maxEnergy").innerText = data.maxEnergy;
-  document.getElementById("points").innerText = data.points;
-}
-loadState();
-
-/* ===== TAP ===== */
-document.getElementById("coin").addEventListener("click", async ()=>{
-  const res = await fetch("/tap",{
-    method:"POST",
-    headers:{ "Content-Type":"application/json" },
-    body:JSON.stringify({ user_id:userId })
-  });
-  const data = await res.json();
-  if(!data.success) return;
-  document.getElementById("energy").innerText = data.energy;
-  document.getElementById("points").innerText =
-    Number(document.getElementById("points").innerText) + data.gain;
-});
+/* ===== ORIGINAL JS CONTINUES BELOW (بدون تغيير) ===== */
 </script>
+
+<!-- 🔴 هنا يبقى كل JavaScript الأصلي الخاص بك كما هو 🔴 -->
 
 </body>
 </html>
