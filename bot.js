@@ -23,10 +23,48 @@ app.use(express.static("public"));
 // ================= CONSTANTS =================
 const MAX_ENERGY = 500;
 const REGEN_RATE = 1.2;
+const WEBAPP_URL = "https://botnjr.onrender.com";
+
+// ================= TEXTS =================
+const TEXTS = {
+  en: {
+    welcome: (name) => `
+🚀 *Welcome ${name}!*
+
+Welcome to *NJR – Nova Joint Reserve* 💎
+
+⚡ Tap to earn points  
+🔥 Upgrade your power  
+🚀 Grow your balance  
+
+👇 Press the button below to start now
+`,
+    button: "🚀 START TAPPING"
+  },
+
+  ar: {
+    welcome: (name) => `
+🚀 *مرحبًا ${name}!*
+
+مرحبًا بك في *NJR – Nova Joint Reserve* 💎
+
+⚡ اضغط لتربح النقاط  
+🔥 طوّر قوتك  
+🚀 نمّي رصيدك  
+
+👇 اضغط الزر بالأسفل وابدأ الآن
+`,
+    button: "🚀 ابدأ اللعب"
+  }
+};
 
 // ================= /start =================
 bot.onText(/\/start/, async (msg) => {
+  const chatId = msg.chat.id;
   const userId = String(msg.from.id);
+  const name = msg.from.first_name || "Player";
+  const lang = msg.from.language_code?.startsWith("ar") ? "ar" : "en";
+
   const ref = db.collection("users").doc(userId);
   const snap = await ref.get();
 
@@ -44,18 +82,22 @@ bot.onText(/\/start/, async (msg) => {
     });
   }
 
-  bot.sendMessage(msg.chat.id, "ابدأ اللعب 👇", {
-    reply_markup: {
-      inline_keyboard: [[
-        {
-          text: "▶️ START TAPPING",
-          web_app: {
-            url: "https://botnjr.onrender.com"
+  await bot.sendMessage(
+    chatId,
+    TEXTS[lang].welcome(name),
+    {
+      parse_mode: "Markdown",
+      reply_markup: {
+        keyboard: [[
+          {
+            text: TEXTS[lang].button,
+            web_app: { url: WEBAPP_URL }
           }
-        }
-      ]]
+        ]],
+        resize_keyboard: true
+      }
     }
-  });
+  );
 });
 
 // ================= GET STATE =================
@@ -121,6 +163,5 @@ app.post("/tap", async (req, res) => {
 // ================= SERVER =================
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-  console.log("Server running on", PORT);
+  console.log("🚀 Server running on", PORT);
 });
-
