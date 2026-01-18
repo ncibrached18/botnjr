@@ -33,7 +33,7 @@ html,body{width:100%;height:100%;overflow:hidden;font-family:'Poppins',system-ui
 .modal{width:92%;max-width:420px;background:linear-gradient(180deg,#1f1826,#2a2237);border-radius:12px;padding:18px;color:#fff;box-shadow:0 8px 30px rgba(0,0,0,.6);}
 .modal h3{margin-bottom:8px;}
 .booster-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:12px 0;}
-.booster-btn{background:rgba(255,255,255,.04);Padding:12px;border-radius:10px;cursor:pointer;border:1px solid rgba(255,255,255,.03);display:flex;flex-direction:column;gap:6px;}
+.booster-btn{background:rgba(255,255,255,.04);padding:12px;border-radius:10px;cursor:pointer;border:1px solid rgba(255,255,255,.03);display:flex;flex-direction:column;gap:6px;}
 .small{font-size:13px;color:#bdb3d6;}
 .purchase-options{display:flex;flex-direction:column;gap:8px;margin-top:10px;}
 .option{display:flex;justify-content:space-between;align-items:center;padding:10px;border-radius:8px;background:rgba(255,255,255,.03);cursor:pointer;}
@@ -279,7 +279,7 @@ document.querySelectorAll('.purchase-options .option').forEach(opt=>{
   opt.addEventListener('click', async ()=> {
     const price = parseFloat(opt.dataset.price);
     const duration = parseInt(opt.dataset.duration,10);
-    // create purchase on server, server will create invoice via Telegram /provider and return payment_url or purchase_id
+    // create purchase on server, server will create invoice via Telegram / provider and return payment_url or purchase_id
     showToast("جارٍ إنشاء الفاتورة...");
     const r = await fetch("/purchase", {method:"POST",headers:{"Content-Type":"application/json"}, body: JSON.stringify({ user_id: userId, price, duration })});
     const j = await r.json();
@@ -347,7 +347,7 @@ coin.addEventListener("click", ()=>{
       pendingGain = Math.max(0, pendingGain - data.gain);
       // reconcile displays
       animateNumber(displayedEnergy, energy, v=>{ displayedEnergy=v; updateUI(); }, 300);
-      animateNumber(displayedPoints, points + pendingGain, v=>{ displayedPoints=v; updateUI(); }, 300);
+      animateNumber(displayedPoints, points + pendingGain, v=>{ displayedPoints = v; updateUI(); }, 300);
     }).catch(err=>{
       console.warn("tap error",err);
       // on error refresh
@@ -553,6 +553,256 @@ updateUI();
   document.getElementById('termsBtn').addEventListener('click', ()=>{
     if(typeof showToast === 'function') showToast('Open Terms of Use');
     // you can redirect or open a modal here
+  });
+})();
+</script>
+<!-- END APPEND -->
+
+<!-- APPEND: Privacy & Terms viewer (paste this before the closing </body>) -->
+<style>
+/* Policy modal (scoped) */
+.policy-backdrop{
+  position:fixed;inset:0;display:none;align-items:center;justify-content:center;
+  background:rgba(0,0,0,.6);z-index:700;padding:20px;backdrop-filter:blur(6px);
+}
+.policy-modal{
+  width:92%;max-width:760px;max-height:86vh;overflow:auto;background:linear-gradient(180deg,#1f1826,#2a2237);
+  border-radius:12px;padding:18px 18px 22px;color:#fff;box-shadow:0 12px 40px rgba(0,0,0,.6);
+  border:1px solid rgba(255,255,255,.03);font-family:'Poppins',system-ui;
+}
+.policy-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;}
+.policy-title{font-weight:800;font-size:18px;color:#fff;}
+.policy-close{background:transparent;border:1px solid rgba(255,255,255,.04);color:#cfc1e8;padding:6px 10px;border-radius:8px;cursor:pointer;}
+.policy-content{font-size:14px;line-height:1.6;color:#e6dff6;}
+.policy-section{margin-top:10px;margin-bottom:10px;}
+.policy-small{font-size:13px;color:#bfb1d8;margin-top:8px;}
+/* make long paragraphs readable */
+.policy-content p{margin:8px 0;}
+</style>
+
+<div class="policy-backdrop" id="policyBackdrop" aria-hidden="true">
+  <div class="policy-modal" role="dialog" aria-modal="true" aria-labelledby="policyTitle">
+    <div class="policy-header">
+      <div id="policyTitle" class="policy-title">Policy</div>
+      <button class="policy-close" id="closePolicyBtn">إغلاق</button>
+    </div>
+    <div class="policy-content" id="policyContent" tabindex="0"></div>
+  </div>
+</div>
+
+<script>
+// Policy viewer behavior
+(function(){
+  const backdrop = document.getElementById('policyBackdrop');
+  const contentEl = document.getElementById('policyContent');
+  const titleEl = document.getElementById('policyTitle');
+  const closeBtn = document.getElementById('closePolicyBtn');
+
+  // Texts provided (Privacy Policy & Terms of Use)
+  const PRIVACY_HTML = `
+  <h3>Privacy Policy for NJR (Nova Joint Reserve)</h3>
+  <div class="policy-small">Last Updated: 18 January 2026</div>
+  <div class="policy-section">
+    <p>Welcome to NJR (Nova Joint Reserve). Your privacy is important to us. This Privacy Policy explains how we collect, use, disclose, and protect your information when you use our Telegram mini-app NJR (“we”, “our”, or “us”).</p>
+
+    <h4>1. Information We Collect</h4>
+    <h5>1.1 Personal Information</h5>
+    <p>We may collect limited personal information necessary to operate the NJR mini-app, including:</p>
+    <ul>
+      <li><strong>Telegram Username:</strong> Used to identify and interact with you within the app.</li>
+      <li><strong>Contact Information:</strong> Such as email address or phone number, only if you voluntarily provide it for support or feedback purposes.</li>
+      <li><strong>Profile Information:</strong> Public Telegram profile information that is accessible to us through the Telegram platform.</li>
+    </ul>
+
+    <h5>1.2 Non-Personal Information</h5>
+    <p>We may collect non-personal data that does not directly identify you, including:</p>
+    <ul>
+      <li><strong>Usage Data:</strong> Information about how you interact with the app, such as taps, features used, timestamps, and activity statistics.</li>
+      <li><strong>Device Information:</strong> Basic technical information such as device type, operating system version, and anonymized identifiers.</li>
+    </ul>
+  </div>
+
+  <div class="policy-section">
+    <h4>2. How We Use Your Information</h4>
+    <p>We use the collected information for the following purposes:</p>
+    <ul>
+      <li><strong>Providing and Maintaining the Service:</strong> To operate, maintain, and deliver NJR functionalities.</li>
+      <li><strong>Improving the Service:</strong> To analyze usage patterns and improve performance, features, and user experience.</li>
+      <li><strong>Communication:</strong> To respond to inquiries, provide support, and send important service-related notifications.</li>
+      <li><strong>Security and Fraud Prevention:</strong> To detect, prevent, and address technical issues, abuse, or unauthorized activity.</li>
+    </ul>
+  </div>
+
+  <div class="policy-section">
+    <h4>3. Information Sharing and Disclosure</h4>
+    <p>We do not sell, trade, or rent your personal information. We may share information only in the following situations:</p>
+    <ul>
+      <li><strong>With Your Consent:</strong> When you explicitly agree to share information.</li>
+      <li><strong>Service Providers:</strong> Trusted third parties that help operate NJR (such as hosting or analytics services). These providers may access data only to perform tasks on our behalf and are bound by confidentiality obligations.</li>
+      <li><strong>Legal Obligations:</strong> When required by law, regulation, court order, or governmental request.</li>
+    </ul>
+  </div>
+
+  <div class="policy-section">
+    <h4>4. Data Security</h4>
+    <p>We implement reasonable technical and organizational security measures to protect your information from unauthorized access, alteration, disclosure, or destruction.
+    However, no method of transmission over the internet or electronic storage is completely secure, and we cannot guarantee absolute security.</p>
+  </div>
+
+  <div class="policy-section">
+    <h4>5. Your Rights</h4>
+    <p>Depending on applicable laws, you may have the right to:</p>
+    <ul>
+      <li>Access and Update your personal information.</li>
+      <li>Request Deletion of your personal data, subject to legal or operational requirements.</li>
+      <li>Object or Restrict Processing of your data under certain conditions.</li>
+      <li>Withdraw Consent at any time where processing is based on your consent.</li>
+    </ul>
+    <p>To exercise these rights, please contact us at: <strong>support@njr.ai</strong></p>
+  </div>
+
+  <div class="policy-section">
+    <h4>6. Children’s Privacy</h4>
+    <p>NJR is not intended for children under the age of 13. We do not knowingly collect personal information from children under 13.
+    If we become aware that such data has been collected, we will take steps to delete it promptly.</p>
+  </div>
+
+  <div class="policy-section">
+    <h4>7. Changes to This Privacy Policy</h4>
+    <p>We may update this Privacy Policy from time to time. Any changes will be posted within the app or on this page with an updated “Last Updated” date.
+    You are encouraged to review this Privacy Policy periodically.</p>
+  </div>
+
+  <div class="policy-section">
+    <h4>8. Contact Us</h4>
+    <p>If you have any questions or concerns regarding this Privacy Policy, please contact us at: <strong>support@njr.ai</strong></p>
+    <p>We aim to respond as soon as possible, and no later than 30 days.</p>
+  </div>
+  `;
+
+  const TERMS_HTML = `
+  <h3>Terms of Use — NJR (Nova Joint Reserve)</h3>
+  <div class="policy-small">Effective Date: 18 January 2026</div>
+
+  <div class="policy-section">
+    <h4>1. Acceptance of Terms</h4>
+    <p>By accessing or using NJR (Nova Joint Reserve) (“NJR”, “Service”, “we”, “our”, or “us”), you confirm that you have read, fully understood, and agreed to be legally bound by these Terms of Use, our Privacy Policy, and any applicable Telegram Mini App Terms of Service.</p>
+    <p>These Terms may be updated or modified from time to time without prior notice. Your continued use of NJR constitutes acceptance of any revised Terms.</p>
+  </div>
+
+  <div class="policy-section">
+    <h4>2. In-App Purchases</h4>
+    <p>All in-app purchases, including boosts, upgrades, or virtual items, are provided solely for entertainment and engagement purposes.</p>
+    <p>Such purchases do not constitute investments, have no guaranteed financial value, and do not represent ownership, securities, or profit rights.</p>
+    <p>All purchases are made voluntarily, and users are solely responsible for their decisions. NJR assumes no liability for any outcomes, financial or otherwise, resulting from in-app purchases. All sales are final and non-refundable, except where required by applicable law. Users should carefully consider their financial situation before making any purchase.</p>
+  </div>
+
+  <div class="policy-section">
+    <h4>3. Payment-Related Disputes</h4>
+    <p>Payments initiated through NJR, whether in cryptocurrency or fiat, are processed by third-party payment providers. NJR does not handle, manage, verify, or guarantee these transactions.</p>
+    <p>Any disputes, claims, errors, losses, delays, or technical issues related to payments must be addressed directly with the relevant payment provider. NJR shall not be liable for any losses or damages arising from payment-related issues and will not participate in related disputes.</p>
+  </div>
+
+  <div class="policy-section">
+    <h4>4. Disclaimer</h4>
+    <p><strong>General Disclaimer:</strong> NJR is provided on an “AS IS” and “AS AVAILABLE” basis. You use the Service at your own risk.</p>
+    <p><strong>No Performance Warranty:</strong> We do not guarantee uninterrupted, secure, or error-free operation, nor any specific outcomes or results.</p>
+    <p><strong>Technical Disclaimer:</strong> NJR is not responsible for technical failures including blockchain issues, server downtime, software bugs, or connectivity problems.</p>
+    <p><strong>User Conduct:</strong> NJR is not responsible for the actions, behavior, or content of users.</p>
+    <p><strong>Third-Party Services:</strong> NJR may link to or integrate third-party services. We do not control or endorse them and are not responsible for their content, policies, or practices.</p>
+  </div>
+
+  <div class="policy-section">
+    <h4>5. Limitation of Liability</h4>
+    <p>To the maximum extent permitted by law, NJR (Nova Joint Reserve) shall not be liable for any indirect, incidental, special, consequential, or punitive damages, including but not limited to loss of profits, data, goodwill, or virtual assets, arising from:</p>
+    <ul>
+      <li>Use or inability to use the Service</li>
+      <li>Unauthorized access to data or accounts</li>
+      <li>Third-party conduct or services</li>
+      <li>Errors, interruptions, or security breaches</li>
+    </ul>
+  </div>
+
+  <div class="policy-section">
+    <h4>6. Intellectual Property</h4>
+    <p>All content, features, software, designs, logos, text, graphics, and functionality related to NJR are the exclusive property of Nova Joint Reserve or its licensors and are protected by international intellectual property laws.</p>
+    <p>You may not copy, modify, distribute, sell, reverse-engineer, or exploit any part of the Service without prior written consent. Unauthorized use of NJR intellectual property is strictly prohibited and may result in legal action.</p>
+  </div>
+
+  <div class="policy-section">
+    <h4>7. Privacy</h4>
+    <p>Your use of NJR is subject to our Privacy Policy, which explains how we collect, use, and protect your personal information. By using the Service, you consent to such processing.</p>
+  </div>
+
+  <div class="policy-section">
+    <h4>8. Termination</h4>
+    <p>We reserve the right to suspend or terminate your access to NJR at any time, with or without notice, for any reason, including violation of these Terms.
+    Upon termination, your right to use the Service will immediately cease. Provisions that by their nature should survive termination shall remain in effect.</p>
+  </div>
+
+  <div class="policy-section">
+    <h4>9. Indemnification</h4>
+    <p>You agree to indemnify and hold harmless NJR (Nova Joint Reserve), its affiliates, officers, directors, employees, and agents from any claims, damages, losses, liabilities, or expenses (including legal fees) arising from your use of the Service or violation of these Terms.</p>
+  </div>
+
+  <div class="policy-section">
+    <h4>10. Governing Law</h4>
+    <p>These Terms shall be governed by and construed in accordance with the laws of Seychelles, without regard to conflict of law principles.</p>
+  </div>
+
+  <div class="policy-section">
+    <h4>11. Changes to Terms</h4>
+    <p>We reserve the right to modify or replace these Terms at any time. If changes are material, we will provide reasonable notice (where feasible). Continued use of the Service after changes become effective constitutes acceptance of the updated Terms.</p>
+  </div>
+
+  <div class="policy-section">
+    <h4>12. Binding Telegram Terms</h4>
+    <p>By using NJR, you also agree to be bound by the Telegram Mini App Terms of Use, as provided by Telegram.</p>
+  </div>
+
+  <div class="policy-section">
+    <h4>13. Contact Us</h4>
+    <p>If you have any questions regarding these Terms of Use, please contact us at: <strong>support@njr.ai</strong></p>
+  </div>
+  `;
+
+  // open policy modal with given HTML and title
+  function openPolicy(title, html){
+    titleEl.innerText = title;
+    contentEl.innerHTML = html;
+    backdrop.style.display = 'flex';
+    backdrop.setAttribute('aria-hidden','false');
+    // focus for accessibility
+    contentEl.focus();
+  }
+
+  function closePolicy(){
+    backdrop.style.display = 'none';
+    backdrop.setAttribute('aria-hidden','true');
+    contentEl.innerHTML = '';
+  }
+
+  // wire buttons (the buttons exist inside Account panel)
+  const privacyBtn = document.getElementById('privacyBtn');
+  const termsBtn = document.getElementById('termsBtn');
+
+  if(privacyBtn){
+    privacyBtn.addEventListener('click', ()=> {
+      openPolicy('Privacy Policy — NJR', PRIVACY_HTML);
+    });
+  }
+  if(termsBtn){
+    termsBtn.addEventListener('click', ()=> {
+      openPolicy('Terms of Use — NJR', TERMS_HTML);
+    });
+  }
+
+  closeBtn.addEventListener('click', closePolicy);
+  backdrop.addEventListener('click', (e)=>{ if(e.target === backdrop) closePolicy(); });
+
+  // close with Escape key
+  document.addEventListener('keydown', (e)=>{
+    if(e.key === 'Escape' && backdrop.style.display === 'flex') closePolicy();
   });
 })();
 </script>
