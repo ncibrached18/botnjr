@@ -31,6 +31,7 @@ html,body{width:100%;height:100%;overflow:hidden;font-family:'Poppins',system-ui
 /* ====== BOOST MODAL ====== */
 .modal-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.5);display:none;align-items:center;justify-content:center;z-index:200;}
 .modal{width:92%;max-width:420px;background:linear-gradient(180deg,#1f1826,#2a2237);border-radius:12px;padding:18px;color:#fff;box-shadow:0 8px 30px rgba(0,0,0,.6);}
+/* modal content */
 .modal h3{margin-bottom:8px;}
 .booster-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:12px 0;}
 .booster-btn{background:rgba(255,255,255,.04);padding:12px;border-radius:10px;cursor:pointer;border:1px solid rgba(255,255,255,.03);display:flex;flex-direction:column;gap:6px;}
@@ -56,6 +57,7 @@ html,body{width:100%;height:100%;overflow:hidden;font-family:'Poppins',system-ui
 
 /* small countdown badge */
 .effect-badge{position:absolute;top:8px;right:8px;background:rgba(0,0,0,.4);padding:6px 8px;border-radius:10px;font-size:12px;border:1px solid rgba(255,255,255,.06);}
+/* toast */
 .toast{position:fixed;left:50%;transform:translateX(-50%);bottom:80px;background:#111;padding:10px 14px;border-radius:8px;color:#fff;box-shadow:0 6px 20px rgba(0,0,0,.6);display:none;z-index:300;}
 </style>
 </head>
@@ -94,11 +96,11 @@ html,body{width:100%;height:100%;overflow:hidden;font-family:'Poppins',system-ui
 
     <div style="margin-top:12px;">
       <div style="display:flex;gap:8px;">
-        <div class="booster-btn" id="btnFullTank">
+        <div class="booster-btn" id="btnFullTank" role="button" aria-pressed="false" tabindex="0">
           <div style="font-weight:800">⚡ Full Tank</div>
           <div class="small">Refills energy instantly (3/day)</div>
         </div>
-        <div class="booster-btn" id="btnTaping">
+        <div class="booster-btn" id="btnTaping" role="button" aria-pressed="false" tabindex="0">
           <div style="font-weight:800">🔥 Taping Guru</div>
           <div class="small">Tap multiplier ×2 for 10 seconds (3/day)</div>
         </div>
@@ -109,7 +111,7 @@ html,body{width:100%;height:100%;overflow:hidden;font-family:'Poppins',system-ui
         <div class="purchase-options">
           <div class="option" data-price="0.5" data-duration="3600"><div>×2 — 1 hour</div><div>$0.5</div></div>
           <div class="option" data-price="1" data-duration="14400"><div>×2 — 4 hours</div><div>$1</div></div>
-          <div class="option" data-price="4" data-duration="28800"><div>��2 — 8 hours</div><div>$4</div></div>
+          <div class="option" data-price="4" data-duration="28800"><div>×2 — 8 hours</div><div>$4</div></div>
         </div>
       </div>
 
@@ -261,30 +263,44 @@ document.getElementById("closeModal").addEventListener("click", ()=> modalBackdr
 // Full Tank
 document.getElementById("btnFullTank").addEventListener("click", async ()=>{
   showToast("طلب Full Tank...");
-  const res = await fetch("/boost/full", {method:"POST",headers:{"Content-Type":"application/json"}, body: JSON.stringify({user_id:userId})});
-  const data = await res.json();
-  if(!data.success){ showToast(data.message || "Activation failed"); return; }
-  // server returns new energy
-  energy = data.energy; points = data.points || points;
-  // reconcile display
-  pendingGain = 0;
-  animateNumber(displayedEnergy, energy, v=>{ displayedEnergy=v; updateUI(); }, 300);
-  animateNumber(displayedPoints, points, v=>{ displayedPoints=v; updateUI(); }, 300);
-  showToast("Energy refilled");
+  try {
+    const res = await fetch("/boost/full", {method:"POST",headers:{"Content-Type":"application/json"}, body: JSON.stringify({user_id:userId})});
+    const data = await res.json();
+    if(!data.success){ showToast(data.message || "Activation failed"); return; }
+    // server returns new energy
+    energy = data.energy; points = data.points || points;
+    // reconcile display
+    pendingGain = 0;
+    animateNumber(displayedEnergy, energy, v=>{ displayedEnergy=v; updateUI(); }, 300);
+    animateNumber(displayedPoints, points, v=>{ displayedPoints=v; updateUI(); }, 300);
+    // Close modal immediately so user can continue
+    modalBackdrop.style.display = "none";
+    showToast("Energy refilled");
+  } catch (err) {
+    console.warn("Full Tank activation error", err);
+    showToast("Activation failed");
+  }
 });
 
 // Taping Guru (10s ×2)
 document.getElementById("btnTaping").addEventListener("click", async ()=>{
   showToast("Activation Taping Guru...");
-  const res = await fetch("/boost/taping", {method:"POST",headers:{"Content-Type":"application/json"}, body: JSON.stringify({user_id:userId})});
-  const data = await res.json();
-  if(!data.success){ showToast(data.message || "Activation failed"); return; }
-  // server returns effect with expires_at
-  activeEffects = data.active_effects || activeEffects;
-  // update local multiplier and UI immediately
-  localMultiplier = 2;
-  updateUI();
-  showToast("Taping Guru activated for 10 seconds");
+  try {
+    const res = await fetch("/boost/taping", {method:"POST",headers:{"Content-Type":"application/json"}, body: JSON.stringify({user_id:userId})});
+    const data = await res.json();
+    if(!data.success){ showToast(data.message || "Activation failed"); return; }
+    // server returns effect with expires_at
+    activeEffects = data.active_effects || activeEffects;
+    // update local multiplier and UI immediately
+    localMultiplier = 2;
+    updateUI();
+    // Close modal so user can immediately benefit from the 10s window
+    modalBackdrop.style.display = "none";
+    showToast("Taping Guru activated for 10 seconds");
+  } catch (err) {
+    console.warn("Taping activation error", err);
+    showToast("Activation failed");
+  }
 });
 
 // Purchase options
@@ -312,7 +328,7 @@ document.querySelectorAll('.purchase-options .option').forEach(opt=>{
       const sj = await sres.json();
       if(sj.success && sj.status === 'paid'){
         clearInterval(poll);
-        showToast("Payment confirmed. ×2 activated instantlyاً");
+        showToast("Payment confirmed. ×2 activated instantly");
         // server should have added an active_effect of type 'x2'
         await pollState(); // force refresh
         modalBackdrop.style.display = "none";
@@ -402,10 +418,10 @@ updateUI();
 .ref-list{margin-top:12px;padding-top:6px;color:#d9cfe9;}
 .settings-list{display:flex;flex-direction:column;gap:10px;}
 .settings-item{background:rgba(255,255,255,.02);padding:12px;border-radius:10px;display:flex;justify-content:space-between;align-items:center;cursor:pointer;border:1px solid rgba(255,255,255,.02);}
+/* small tweaks */
 .close-panel{position:absolute;right:18px;top:12px;color:#cfc1e8;cursor:pointer;font-weight:700;}
 .no-ref{padding:24px 6px;text-align:center;color:#d6cfe6;}
 .account-small{font-size:13px;color:#bfb1d8;margin-bottom:6px;}
-/* small responsive tweak */
 @media (min-width:720px){ .account-panel{margin-top:48px;} }
 </style>
 
@@ -413,7 +429,7 @@ updateUI();
   <div class="account-panel" role="dialog" aria-modal="true" aria-labelledby="accountTitle">
     <div style="position:relative;">
       <div id="accountTitle" style="font-weight:800;font-size:16px;color:#fff;margin-bottom:8px;">Account</div>
-      <div class="close-panel" id="closeAccountPanel">✕</div>
+      <div class="close-panel" id="closeAccountPanel" role="button" tabindex="0">✕</div>
     </div>
 
     <div class="account-top-tabs" role="tablist" aria-label="Account tabs">
@@ -483,7 +499,7 @@ updateUI();
 </div>
 
 <script>
-// Account panel behavior (uses existing userId variable from your script)
+/* Account panel behavior (uses existing userId variable from your script) */
 (function(){
   const backdrop = document.getElementById('accountPanelBackdrop');
   const closeBtn = document.getElementById('closeAccountPanel');
@@ -613,9 +629,7 @@ updateUI();
   }
 
   closeBtn.addEventListener('click', closePanel);
-  backdrop.addEventListener('click', (e)=>{
-    if(e.target === backdrop) closePanel();
-  });
+  backdrop.addEventListener('click', (e)=>{ if(e.target === backdrop) closePanel(); });
 
   // tab switching
   tabs.forEach(t=>{
@@ -646,13 +660,12 @@ updateUI();
   });
 
   // settings items (open external pages or show toast)
-  document.getElementById('privacyBtn').addEventListener('click', ()=>{
+  document.getElementById('privacyBtn').addEventListener('click', ()=>{ 
     if(typeof showToast === 'function') showToast('Open Privacy Policy');
-    // you can redirect or open a modal here
     const evt = new Event('openPrivacy');
     document.dispatchEvent(evt);
   });
-  document.getElementById('termsBtn').addEventListener('click', ()=>{
+  document.getElementById('termsBtn').addEventListener('click', ()=>{ 
     if(typeof showToast === 'function') showToast('Open Terms of Use');
     const evt = new Event('openTerms');
     document.dispatchEvent(evt);
@@ -679,7 +692,6 @@ updateUI();
 .policy-content{font-size:14px;line-height:1.6;color:#e6dff6;}
 .policy-section{margin-top:10px;margin-bottom:10px;}
 .policy-small{font-size:13px;color:#bfb1d8;margin-top:8px;}
-/* make long paragraphs readable */
 .policy-content p{margin:8px 0;}
 </style>
 
