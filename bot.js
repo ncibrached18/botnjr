@@ -82,23 +82,6 @@ async function incMeta(fields) {
   });
 }
 
-// helper: reset daily boost counts if day changed
-async function resetBoostCountsIfNeeded(user, ref, now) {
-  const lastReset = user.boost_counts_reset || 0;
-  const lastResetDate = new Date(lastReset).toDateString();
-  const todayDate = new Date(now).toDateString();
-  if (lastReset === 0 || lastResetDate !== todayDate) {
-    await ref.update({
-      taping_used: 0,
-      fulltank_used: 0,
-      boost_counts_reset: now
-    }).catch(()=>{});
-    user.taping_used = 0;
-    user.fulltank_used = 0;
-    user.boost_counts_reset = now;
-  }
-}
-
 // ================= /start =================
 // Accept optional start payload. payload format supported: r_<referrerId>
 // Example deep-link: https://t.me/NJROfficialBot?start=r_123456789
@@ -130,11 +113,11 @@ bot.onText(/\/start(?:\s(.+))?/, async (msg, match) => {
       touches: 0,
       lastActive: now,
       lastDailyActive: 0,
-      // booster counters & effects
-      taping_used: 0,
-      fulltank_used: 0,
-      boost_counts_reset: now,
-      active_effects: [] // array of { type: "taping"|"x2", expires_at: ms }
+      // boost tracking (daily)
+      taping_used_today: 0,
+      fulltank_used_today: 0,
+      lastBoostDate: new Date(now).toDateString(),
+      active_effects: []
     });
     // increment global players count
     await incMeta({ total_players: 1 });
@@ -201,34 +184,36 @@ bot.onText(/\/start(?:\s(.+))?/, async (msg, match) => {
           });
 
           // If meta doc wasn't updated in tx above (rare), ensure increments
-          await incMeta({ total_share_balance: FIRST_TIME_GIFT + REFERRER_BONUS, total_referrals: 1 });
+await incMeta({ total_share_balance: FIRST_TIME_GIFT + REFERRER_BONUS, total_referrals: 1 });
 
-          // notify both parties (safe best-effort)
-          try {
-            // notify new user
-            await bot.sendMessage(
-              msg.chat.id,
-              `🎉 Welcome! You registered via a referral link and received ${FIRST_TIME_GIFT} bonus points.`
-            );
-          } catch (e) { /* ignore notification errors */ }
+ // notify both parties (safe best-effort)
+try {
+  // notify new user
+  await bot.sendMessage(
+    msg.chat.id,
+    `🎉 Welcome! You registered via a referral link and received ${FIRST_TIME_GIFT} bonus points.`
+  );
+} catch (e) { /* ignore notification errors */ }
 
-          try {
-            // notify referrer (best-effort, only if bot can message them)
-            await bot.sendMessage(
-              Number(referrerId),
-              `✅ You have a new referral! ${REFERRER_BONUS} points have been added to your account.`
-            );
-          } catch (e) {
-            // it's normal if bot can't message the referrer (e.g. never started), ignore
-          }
-        } catch (err) {
-          console.error("Referral transaction failed:", err);
-        }
-      } else {
-        // payload was self-referral or invalid — still set referrer field to null
-        await ref.update({ referrer: null }).catch(()=>{});
-      }
-    }
+try {
+  // notify referrer (best-effort, only if bot can message them)
+  await bot.sendMessage(
+    Number(referrerId),
+    `✅ You have a new referral! ${REFERRER_BONUS} points have been added to your account.`
+  );
+} catch (e) {
+  // it's normal if bot can't message the referrer (e.g. never started), ignore
+}
+} catch (err) {
+  console.error("Referral transaction failed:", err);
+}
+} else {
+  // payload was self-referral or invalid — still set referrer field to null
+  await ref.update({ referrer: null }).catch(()=>{});
+}
+}
+
+
   } else {
     // user exists: optional handling if payload is present and user had no referrer previously
     // We'll allow setting referrer only if user hasn't been awarded previously and has no referrer
@@ -309,14 +294,7 @@ app.get("/state/:userId", async (req, res) => {
 
     const user = snap.data();
     const now = Date.now();
-
-    // prune expired effects
-    const activeEffects = (user.active_effects || []).filter(e => e.expires_at > now);
-    if ((user.active_effects || []).length !== activeEffects.length) {
-      // update stored active_effects to remove expired ones
-      ref.update({ active_effects: activeEffects }).catch(()=>{});
-    }
-
+    // reset energy calculation
     const elapsed = Math.floor((now - (user.lastEnergyUpdate || now)) / 1000);
 
     const energy = Math.min(
@@ -324,13 +302,16 @@ app.get("/state/:userId", async (req, res) => {
       Math.floor((user.energy || 0) + elapsed * (user.regenRate || REGEN_RATE))
     );
 
+    // filter active effects to only non-expired (do not persist removal here to keep GET read-only)
+    const active_effects = Array.isArray(user.active_effects) ? user.active_effects.filter(e => (e.expires_at || 0) > now) : [];
+
     res.json({
       success: true,
       energy,
       maxEnergy: user.maxEnergy,
       points: user.points,
       referral_bonus_total: user.referral_bonus_total || 0,
-      active_effects: activeEffects // return active effects so client can show UI (expires_at in ms)
+      active_effects
     });
   } catch (err) {
     console.error("state error", err);
@@ -373,64 +354,94 @@ app.get("/ref/:userId", async (req, res) => {
   }
 });
 
-// ================= DAILY INFO =================
-// returns how many boosts used today for showing in modal
+// ================= DAILY-INFO (for the modal) =================
 app.get("/daily-info/:userId", async (req, res) => {
   try {
     const userId = String(req.params.userId);
     const ref = db.collection("users").doc(userId);
     const snap = await ref.get();
     if (!snap.exists) return res.json({ success: false, message: "user not found" });
+
     const user = snap.data();
     const now = Date.now();
-    await resetBoostCountsIfNeeded(user, ref, now);
-    const updatedSnap = await ref.get();
-    const updated = updatedSnap.data();
-    return res.json({
-      success: true,
-      taping_used: updated.taping_used || 0,
-      fulltank_used: updated.fulltank_used || 0
-    });
+    const today = new Date(now).toDateString();
+    let taping_used = user.taping_used_today || 0;
+    let fulltank_used = user.fulltank_used_today || 0;
+
+    // if lastBoostDate is old, counts are effectively zero (do not mutate server here)
+    if ((user.lastBoostDate || '') !== today) {
+      taping_used = 0;
+      fulltank_used = 0;
+    }
+
+    return res.json({ success: true, taping_used, fulltank_used });
   } catch (err) {
     console.error("daily-info error", err);
     return res.json({ success: false, message: "internal error" });
   }
 });
 
-// ================= BOOST: TAPING (×2 for 10s) =================
+// helper: internal function to reset daily boost counters (returns object of current used counts)
+function normalizeBoostsForToday(userData, now) {
+  const today = new Date(now).toDateString();
+  if (!userData) return { taping_used_today: 0, fulltank_used_today: 0, lastBoostDate: today };
+  if ((userData.lastBoostDate || '') !== today) {
+    return { taping_used_today: 0, fulltank_used_today: 0, lastBoostDate: today };
+  }
+  return {
+    taping_used_today: userData.taping_used_today || 0,
+    fulltank_used_today: userData.fulltank_used_today || 0,
+    lastBoostDate: userData.lastBoostDate || today
+  };
+}
+
+// ================= BOOST: TAPING (10s ×2) =================
 app.post("/boost/taping", async (req, res) => {
   try {
     const { user_id } = req.body;
     if (!user_id) return res.json({ success: false, message: "missing user_id" });
-    const uid = String(user_id);
-    const ref = db.collection("users").doc(uid);
-    const snap = await ref.get();
-    if (!snap.exists) return res.json({ success: false, message: "user not found" });
-
-    const user = snap.data();
+    const ref = db.collection("users").doc(String(user_id));
     const now = Date.now();
-
-    // daily reset if needed
-    await resetBoostCountsIfNeeded(user, ref, now);
-
-    const tapingUsed = user.taping_used || 0;
-    if (tapingUsed >= 3) {
-      return res.json({ success: false, message: "Taping Guru daily limit reached (3/day)" });
-    }
-
     const expires_at = now + 10 * 1000; // 10 seconds
-    const newEffect = { type: "taping", expires_at };
 
-    // push effect and increment counter
-    const updatedEffects = (user.active_effects || []).filter(e => e.expires_at > now).concat(newEffect);
+    const result = await db.runTransaction(async (t) => {
+      const snap = await t.get(ref);
+      if (!snap.exists) return { success: false, message: "user not found" };
+      const data = snap.data();
+      const normalized = normalizeBoostsForToday(data, now);
+      let taping_used = normalized.taping_used_today;
 
-    await ref.update({
-      active_effects: updatedEffects,
-      taping_used: admin.firestore.FieldValue.increment(1)
+      if (taping_used >= 3) {
+        return { success: false, message: "No taping uses left today" };
+      }
+
+      // increment used count and add active effect
+      const new_taping_used = taping_used + 1;
+      const effect = { type: "taping", expires_at };
+
+      // Build updates (explicit numbers to avoid FieldValue.increment complexities across resets)
+      const updates = {
+        taping_used_today: new_taping_used,
+        fulltank_used_today: normalized.fulltank_used_today,
+        lastBoostDate: normalized.lastBoostDate,
+        // keep lastActive updated
+        lastActive: now
+      };
+
+      // push effect into array
+      t.update(ref, updates);
+      t.update(ref, { active_effects: admin.firestore.FieldValue.arrayUnion(effect) });
+
+      return { success: true, active_effects: (data.active_effects || []).concat([effect]), taping_used: new_taping_used };
     });
 
-    // return active effects to client
-    return res.json({ success: true, active_effects: updatedEffects });
+    if (!result) return res.json({ success: false });
+    if (!result.success) return res.json(result);
+
+    // increment global meta if you want tracking (optional)
+    await incMeta({ total_share_balance: 0 });
+
+    return res.json({ success: true, active_effects: result.active_effects, taping_used: result.taping_used });
   } catch (err) {
     console.error("boost/taping error", err);
     return res.json({ success: false, message: "internal error" });
@@ -442,34 +453,40 @@ app.post("/boost/full", async (req, res) => {
   try {
     const { user_id } = req.body;
     if (!user_id) return res.json({ success: false, message: "missing user_id" });
-    const uid = String(user_id);
-    const ref = db.collection("users").doc(uid);
-    const snap = await ref.get();
-    if (!snap.exists) return res.json({ success: false, message: "user not found" });
-
-    const user = snap.data();
+    const ref = db.collection("users").doc(String(user_id));
     const now = Date.now();
 
-    // daily reset if needed
-    await resetBoostCountsIfNeeded(user, ref, now);
+    const result = await db.runTransaction(async (t) => {
+      const snap = await t.get(ref);
+      if (!snap.exists) return { success: false, message: "user not found" };
+      const data = snap.data();
+      const normalized = normalizeBoostsForToday(data, now);
+      let fulltank_used = normalized.fulltank_used_today;
 
-    const fullUsed = user.fulltank_used || 0;
-    if (fullUsed >= 3) {
-      return res.json({ success: false, message: "Full Tank daily limit reached (3/day)" });
-    }
+      if (fulltank_used >= 3) {
+        return { success: false, message: "No Full Tank uses left today" };
+      }
 
-    // set energy to max and update lastEnergyUpdate to now
-    await ref.update({
-      energy: user.maxEnergy || MAX_ENERGY,
-      lastEnergyUpdate: now,
-      fulltank_used: admin.firestore.FieldValue.increment(1)
+      // increment used count and refill energy
+      const new_fulltank_used = fulltank_used + 1;
+      const updates = {
+        fulltank_used_today: new_fulltank_used,
+        taping_used_today: normalized.taping_used_today,
+        lastBoostDate: normalized.lastBoostDate,
+        energy: data.maxEnergy || MAX_ENERGY,
+        lastEnergyUpdate: now,
+        lastActive: now
+      };
+
+      t.update(ref, updates);
+
+      return { success: true, energy: updates.energy, fulltank_used: new_fulltank_used };
     });
 
-    // fetch updated user
-    const updatedSnap = await ref.get();
-    const updated = updatedSnap.data();
+    if (!result) return res.json({ success: false });
+    if (!result.success) return res.json(result);
 
-    return res.json({ success: true, energy: updated.energy, points: updated.points || 0 });
+    return res.json({ success: true, energy: result.energy, fulltank_used: result.fulltank_used });
   } catch (err) {
     console.error("boost/full error", err);
     return res.json({ success: false, message: "internal error" });
@@ -555,9 +572,6 @@ app.post("/tap", async (req, res) => {
     const user = snap.data();
     const now = Date.now();
 
-    // prune expired effects locally
-    const activeEffects = (user.active_effects || []).filter(e => e.expires_at > now);
-
     const elapsed = Math.floor((now - (user.lastEnergyUpdate || now)) / 1000);
     let energy = Math.min(
       user.maxEnergy,
@@ -565,21 +579,19 @@ app.post("/tap", async (req, res) => {
     );
 
     if (energy <= 0) {
-      // also update stored active_effects if expired were pruned
-      if ((user.active_effects || []).length !== activeEffects.length) {
-        await ref.update({ active_effects: activeEffects }).catch(()=>{});
-      }
       return res.json({ success: false, energy });
     }
 
     energy -= 1;
 
-    // compute multiplier from active effects
-    const hasTaping = activeEffects.some(e => e.type === 'taping' && e.expires_at > now);
-    const hasX2 = activeEffects.some(e => e.type === 'x2' && e.expires_at > now);
-    const multiplier = (hasTaping || hasX2) ? 2 : 1;
+    // determine multiplier from active effects (taping or x2)
+    const active_effects = Array.isArray(user.active_effects) ? user.active_effects.filter(e => (e.expires_at || 0) > now) : [];
+    const hasTaping = active_effects.some(e => e.type === 'taping' && e.expires_at > now);
+    const hasX2 = active_effects.some(e => e.type === 'x2' && e.expires_at > now);
+    const extraMultiplier = (hasTaping || hasX2) ? 2 : 1;
 
-    const gain = Math.round((user.boost || 1) * (user.multitap || 1) * multiplier);
+    const baseGain = (user.boost || 1) * (user.multitap || 1);
+    const gain = Math.round(baseGain * extraMultiplier);
 
     // update user and global meta
     await ref.update({
@@ -587,8 +599,7 @@ app.post("/tap", async (req, res) => {
       points: admin.firestore.FieldValue.increment(gain),
       lastEnergyUpdate: now,
       touches: admin.firestore.FieldValue.increment(1),
-      lastActive: now,
-      active_effects: activeEffects // prune expired effects persistently
+      lastActive: now
     });
 
     // increment meta counters
