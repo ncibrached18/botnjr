@@ -96,25 +96,25 @@ html,body{width:100%;height:100%;overflow:hidden;font-family:'Poppins',system-ui
       <div style="display:flex;gap:8px;">
         <div class="booster-btn" id="btnFullTank">
           <div style="font-weight:800">⚡ Full Tank</div>
-          <div class="small">يملىء الطاقة فوراً (3/يوم)</div>
+          <div class="small">Refills energy instantly (3/day)</div>
         </div>
         <div class="booster-btn" id="btnTaping">
           <div style="font-weight:800">🔥 Taping Guru</div>
-          <div class="small">مضاعف النقر ×2 لمدة 10 ثواني (3/يوم)</div>
+          <div class="small">Tap multiplier ×2 for 10 seconds (3/day)</div>
         </div>
       </div>
 
       <div style="margin-top:14px;">
-        <div style="font-weight:700;margin-bottom:6px;">Boost ×2 (اشتري مدة)</div>
+        <div style="font-weight:700;margin-bottom:6px;">Boost ×2 (Buy duration)</div>
         <div class="purchase-options">
-          <div class="option" data-price="0.5" data-duration="3600"><div>×2 — 1 ساعة</div><div>$0.5</div></div>
-          <div class="option" data-price="1" data-duration="14400"><div>×2 — 4 ساعات</div><div>$1</div></div>
-          <div class="option" data-price="4" data-duration="28800"><div>×2 — 8 ساعات</div><div>$4</div></div>
+          <div class="option" data-price="0.5" data-duration="3600"><div>×2 — 1 hour</div><div>$0.5</div></div>
+          <div class="option" data-price="1" data-duration="14400"><div>×2 — 4 hours</div><div>$1</div></div>
+          <div class="option" data-price="4" data-duration="28800"><div>��2 — 8 hours</div><div>$4</div></div>
         </div>
       </div>
 
       <div style="display:flex;gap:8px;margin-top:12px;justify-content:flex-end;">
-        <button class="btn ghost" id="closeModal">إلغاء</button>
+        <button class="btn ghost" id="closeModal">Cancel</button>
       </div>
     </div>
   </div>
@@ -230,6 +230,19 @@ function startPolling(){
 }
 startPolling();
 
+// send heartbeat to mark daily/online activity
+async function sendHeartbeat() {
+  if (!userId || String(userId) === 'guest') return;
+  try {
+    await fetch(`/heartbeat/${userId}`, { method: 'POST' });
+  } catch (e) {
+    console.warn('heartbeat failed', e);
+  }
+}
+
+// call heartbeat once on load
+sendHeartbeat();
+
 // ====== Boost modal UI handling ======
 const modalBackdrop = document.getElementById("modalBackdrop");
 document.getElementById("openBoostBtn").addEventListener("click", ()=> {
@@ -250,28 +263,28 @@ document.getElementById("btnFullTank").addEventListener("click", async ()=>{
   showToast("طلب Full Tank...");
   const res = await fetch("/boost/full", {method:"POST",headers:{"Content-Type":"application/json"}, body: JSON.stringify({user_id:userId})});
   const data = await res.json();
-  if(!data.success){ showToast(data.message || "فشل تفعيل"); return; }
+  if(!data.success){ showToast(data.message || "Activation failed"); return; }
   // server returns new energy
   energy = data.energy; points = data.points || points;
   // reconcile display
   pendingGain = 0;
   animateNumber(displayedEnergy, energy, v=>{ displayedEnergy=v; updateUI(); }, 300);
   animateNumber(displayedPoints, points, v=>{ displayedPoints=v; updateUI(); }, 300);
-  showToast("تم ملء الطاقة");
+  showToast("Energy refilled");
 });
 
 // Taping Guru (10s ×2)
 document.getElementById("btnTaping").addEventListener("click", async ()=>{
-  showToast("تفعيل Taping Guru...");
+  showToast("Activation Taping Guru...");
   const res = await fetch("/boost/taping", {method:"POST",headers:{"Content-Type":"application/json"}, body: JSON.stringify({user_id:userId})});
   const data = await res.json();
-  if(!data.success){ showToast(data.message || "فشل التفعيل"); return; }
+  if(!data.success){ showToast(data.message || "Activation failed"); return; }
   // server returns effect with expires_at
   activeEffects = data.active_effects || activeEffects;
   // update local multiplier and UI immediately
   localMultiplier = 2;
   updateUI();
-  showToast("Taping Guru مفعّل لمدة 10 ثواني");
+  showToast("Taping Guru activated for 10 seconds");
 });
 
 // Purchase options
@@ -280,17 +293,17 @@ document.querySelectorAll('.purchase-options .option').forEach(opt=>{
     const price = parseFloat(opt.dataset.price);
     const duration = parseInt(opt.dataset.duration,10);
     // create purchase on server, server will create invoice via Telegram / provider and return payment_url or purchase_id
-    showToast("جارٍ إنشاء الفاتورة...");
+    showToast("Creating invoice...");
     const r = await fetch("/purchase", {method:"POST",headers:{"Content-Type":"application/json"}, body: JSON.stringify({ user_id: userId, price, duration })});
     const j = await r.json();
-    if(!j.success){ showToast(j.message || "خطأ إنشاء الفاتورة"); return; }
+    if(!j.success){ showToast(j.message || "Invoice creation error"); return; }
     // j.payment_url or j.purchase_id provided
     if(j.payment_url){
       // open payment url (user completes via Telegram wallet or payment page)
       window.open(j.payment_url, "_blank");
     }
     // poll status until confirmed or timeout
-    showToast("انتظر تأكيد الدفع...");
+    showToast("Waiting for payment confirmation...");
     const purchaseId = j.purchase_id;
     const start = Date.now();
     const timeout = 2*60*1000; // 2 minutes
@@ -299,13 +312,13 @@ document.querySelectorAll('.purchase-options .option').forEach(opt=>{
       const sj = await sres.json();
       if(sj.success && sj.status === 'paid'){
         clearInterval(poll);
-        showToast("تم الدفع وتفعيل ×2 فوراً");
+        showToast("Payment confirmed. ×2 activated instantlyاً");
         // server should have added an active_effect of type 'x2'
         await pollState(); // force refresh
         modalBackdrop.style.display = "none";
       } else if(Date.now() - start > timeout){
         clearInterval(poll);
-        showToast("انتهى وقت الدفع أو لم يُكمل المستخدم الدفع");
+        showToast("Payment time expired or the user did not complete the payment");
       }
     }, 2000);
   });
@@ -347,7 +360,7 @@ coin.addEventListener("click", ()=>{
       pendingGain = Math.max(0, pendingGain - data.gain);
       // reconcile displays
       animateNumber(displayedEnergy, energy, v=>{ displayedEnergy=v; updateUI(); }, 300);
-      animateNumber(displayedPoints, points + pendingGain, v=>{ displayedPoints = v; updateUI(); }, 300);
+      animateNumber(displayedPoints, points + pendingGain, v=>{ displayedPoints=v; updateUI(); }, 300);
     }).catch(err=>{
       console.warn("tap error",err);
       // on error refresh
@@ -477,17 +490,26 @@ updateUI();
   const tabs = document.querySelectorAll('.account-tab-btn');
   const contents = document.querySelectorAll('.account-content');
 
+  // refs in DOM
+  const myRefCountEl = document.getElementById('myRefCount');
+  const myRefBonusEl = document.getElementById('myRefBonus');
+  const refListContainer = document.getElementById('refListContainer');
+  const noRefText = document.getElementById('noRefText');
+
   // open when pressing the Account nav (third .nav)
   const accountNav = document.querySelector('.bottom .nav:nth-child(3)');
   if(accountNav){
     accountNav.addEventListener('click', ()=> openAccountPanel());
   }
 
-  function openAccountPanel(){
+  async function openAccountPanel(){
+    // send heartbeat to mark user active (daily/online)
+    try { if (typeof userId !== 'undefined' && String(userId) !== 'guest') await fetch(`/heartbeat/${userId}`, { method: 'POST' }); } catch(e){}
+
     // fill invite link using userId (existing var in page)
     const inviteEl = document.getElementById('inviteLink');
     try{
-      const botUsername = 'NJROfficialBot'; // <= تم تغييره إلى بوتك
+      const botUsername = 'NJROfficialBot';
       const uid = (typeof userId !== 'undefined') ? userId : 'guest';
       const link = `https://t.me/${botUsername}?start=r_${uid}`;
       inviteEl.innerText = link;
@@ -496,12 +518,90 @@ updateUI();
       inviteEl.innerText = 'https://t.me/YOUR-BOT?start=r_XXXXX';
     }
 
-    // default stats values (you can later populate by fetching an endpoint)
-    document.getElementById('statShare').innerText = '9710702162713';
-    document.getElementById('statTouches').innerText = '106 056 491 953';
-    document.getElementById('statPlayers').innerText = '74 839 124';
-    document.getElementById('statDaily').innerText = '22 010';
-    document.getElementById('statOnline').innerText = '318';
+    // fetch global stats and show them
+    try {
+      const gres = await fetch('/global-stats');
+      const g = await gres.json();
+      if (g && g.success) {
+        document.getElementById('statShare').innerText = (g.total_share_balance || 0).toLocaleString();
+        document.getElementById('statTouches').innerText = (g.total_touches || 0).toLocaleString();
+        document.getElementById('statPlayers').innerText = (g.total_players || 0).toLocaleString();
+        document.getElementById('statDaily').innerText = (g.daily_users || 0).toLocaleString();
+        document.getElementById('statOnline').innerText = (g.online_players || 0).toLocaleString();
+      } else {
+        // fallback to previous hardcoded values
+        document.getElementById('statShare').innerText = '9710702162713';
+        document.getElementById('statTouches').innerText = '106 056 491 953';
+        document.getElementById('statPlayers').innerText = '74 839 124';
+        document.getElementById('statDaily').innerText = '22 010';
+        document.getElementById('statOnline').innerText = '318';
+      }
+    } catch (err) {
+      console.warn('global-stats fetch failed', err);
+      document.getElementById('statShare').innerText = '9710702162713';
+      document.getElementById('statTouches').innerText = '106 056 491 953';
+      document.getElementById('statPlayers').innerText = '74 839 124';
+      document.getElementById('statDaily').innerText = '22 010';
+      document.getElementById('statOnline').innerText = '318';
+    }
+
+    // fetch referral info from server and populate UI
+    try {
+      if (typeof userId !== 'undefined' && userId && String(userId) !== 'guest') {
+        const res = await fetch(`/ref/${userId}`);
+        const j = await res.json();
+        if (j && j.success) {
+          myRefCountEl.innerText = j.referrals_count || 0;
+          // use stored referral bonus total from server (not computed client-side)
+          myRefBonusEl.innerText = j.ref_bonus_total || 0;
+
+          // populate list
+          if (Array.isArray(j.referrals) && j.referrals.length > 0) {
+            refListContainer.innerHTML = ''; refListContainer.style.display = 'block'; noRefText.style.display = 'none';
+            j.referrals.forEach(r => {
+              const item = document.createElement('div');
+              item.style.padding = '8px 6px';
+              item.style.borderBottom = '1px solid rgba(255,255,255,.02)';
+              item.style.display = 'flex';
+              item.style.justifyContent = 'space-between';
+              item.style.alignItems = 'center';
+              const left = document.createElement('div');
+              left.style.fontWeight = '700';
+              left.style.color = '#fff';
+              left.innerText = r.uid;
+              const right = document.createElement('div');
+              right.style.fontSize = '12px';
+              right.style.color = '#cfc1e8';
+              right.innerText = r.at ? new Date(r.at).toLocaleString() : '';
+              item.appendChild(left);
+              item.appendChild(right);
+              refListContainer.appendChild(item);
+            });
+          } else {
+            refListContainer.style.display = 'none';
+            noRefText.style.display = 'block';
+          }
+        } else {
+          // failed to get referral info
+          myRefCountEl.innerText = '0';
+          myRefBonusEl.innerText = '0';
+          refListContainer.style.display = 'none';
+          noRefText.style.display = 'block';
+        }
+      } else {
+        // guest - cannot fetch
+        myRefCountEl.innerText = '0';
+        myRefBonusEl.innerText = '0';
+        refListContainer.style.display = 'none';
+        noRefText.style.display = 'block';
+      }
+    } catch (err) {
+      console.warn("Failed to fetch ref info", err);
+      myRefCountEl.innerText = '0';
+      myRefBonusEl.innerText = '0';
+      refListContainer.style.display = 'none';
+      noRefText.style.display = 'block';
+    }
 
     backdrop.style.display = 'flex';
     backdrop.setAttribute('aria-hidden','false');
@@ -549,10 +649,13 @@ updateUI();
   document.getElementById('privacyBtn').addEventListener('click', ()=>{
     if(typeof showToast === 'function') showToast('Open Privacy Policy');
     // you can redirect or open a modal here
+    const evt = new Event('openPrivacy');
+    document.dispatchEvent(evt);
   });
   document.getElementById('termsBtn').addEventListener('click', ()=>{
     if(typeof showToast === 'function') showToast('Open Terms of Use');
-    // you can redirect or open a modal here
+    const evt = new Event('openTerms');
+    document.dispatchEvent(evt);
   });
 })();
 </script>
@@ -598,7 +701,7 @@ updateUI();
   const titleEl = document.getElementById('policyTitle');
   const closeBtn = document.getElementById('closePolicyBtn');
 
-  // Texts provided (Privacy Policy & Terms of Use)
+  // Texts provided (Privacy Policy & Terms of Use) - full HTML content
   const PRIVACY_HTML = `
   <h3>Privacy Policy for NJR (Nova Joint Reserve)</h3>
   <div class="policy-small">Last Updated: 18 January 2026</div>
@@ -766,13 +869,11 @@ updateUI();
   </div>
   `;
 
-  // open policy modal with given HTML and title
   function openPolicy(title, html){
     titleEl.innerText = title;
     contentEl.innerHTML = html;
     backdrop.style.display = 'flex';
     backdrop.setAttribute('aria-hidden','false');
-    // focus for accessibility
     contentEl.focus();
   }
 
@@ -782,7 +883,6 @@ updateUI();
     contentEl.innerHTML = '';
   }
 
-  // wire buttons (the buttons exist inside Account panel)
   const privacyBtn = document.getElementById('privacyBtn');
   const termsBtn = document.getElementById('termsBtn');
 
@@ -800,10 +900,13 @@ updateUI();
   closeBtn.addEventListener('click', closePolicy);
   backdrop.addEventListener('click', (e)=>{ if(e.target === backdrop) closePolicy(); });
 
-  // close with Escape key
   document.addEventListener('keydown', (e)=>{
     if(e.key === 'Escape' && backdrop.style.display === 'flex') closePolicy();
   });
+
+  // also listen to custom events from Account panel to open policies
+  document.addEventListener('openPrivacy', ()=> openPolicy('Privacy Policy — NJR', PRIVACY_HTML));
+  document.addEventListener('openTerms', ()=> openPolicy('Terms of Use — NJR', TERMS_HTML));
 })();
 </script>
 <!-- END APPEND -->
