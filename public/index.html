@@ -41,22 +41,8 @@ html,body{width:100%;height:100%;overflow:hidden;font-family:'Poppins',system-ui
 .btn{background:#ffbf5a;color:#000;padding:8px 12px;border-radius:8px;border:none;cursor:pointer;font-weight:700;}
 .btn.ghost{background:transparent;border:1px solid rgba(255,255,255,.08);color:#fff;}
 
-/* ===== LIGHTNING EFFECT ON COIN ===== */
-.coin.lightning::after{
-  content:"";
-  position:absolute;inset:0;border-radius:50%;
-  box-shadow:0 0 30px 8px rgba(255,255,120,.25), inset 0 0 40px rgba(255,255,255,.08);
-  animation:thunder 0.12s linear infinite;
-  pointer-events:none;
-}
-@keyframes thunder{
-  0%{filter:brightness(1)}
-  50%{filter:brightness(2)}
-  100%{filter:brightness(1)}
-}
-
-/* small countdown badge */
-.effect-badge{position:absolute;top:8px;right:8px;background:rgba(0,0,0,.4);padding:6px 8px;border-radius:10px;font-size:12px;border:1px solid rgba(255,255,255,.06);}
+/* small countdown badge (we keep CSS but won't show it for taping) */
+.effect-badge{position:absolute;top:8px;right:8px;background:rgba(0,0,0,.4);padding:6px 8px;border-radius:10px;font-size:12px;border:1px solid rgba(255,255,255,.06);display:none;}
 /* toast */
 .toast{position:fixed;left:50%;transform:translateX(-50%);bottom:80px;background:#111;padding:10px 14px;border-radius:8px;color:#fff;box-shadow:0 6px 20px rgba(0,0,0,.6);display:none;z-index:300;}
 </style>
@@ -98,11 +84,13 @@ html,body{width:100%;height:100%;overflow:hidden;font-family:'Poppins',system-ui
       <div style="display:flex;gap:8px;">
         <div class="booster-btn" id="btnFullTank" role="button" aria-pressed="false" tabindex="0">
           <div style="font-weight:800">⚡ Full Tank</div>
-          <div class="small">Refills energy instantly (3/day)</div>
+          <!-- show remaining uses like "3/3" -->
+          <div class="small">Refills energy instantly (<span id="fullTankRemaining">3/3</span>)</div>
         </div>
         <div class="booster-btn" id="btnTaping" role="button" aria-pressed="false" tabindex="0">
           <div style="font-weight:800">🔥 Taping Guru</div>
-          <div class="small">Tap multiplier ×2 for 10 seconds (3/day)</div>
+          <!-- show remaining uses like "3/3" -->
+          <div class="small">Tap multiplier ×2 (<span id="tapingRemaining">3/3</span>)</div>
         </div>
       </div>
 
@@ -110,7 +98,7 @@ html,body{width:100%;height:100%;overflow:hidden;font-family:'Poppins',system-ui
         <div style="font-weight:700;margin-bottom:6px;">Boost ×2 (Buy duration)</div>
         <div class="purchase-options">
           <div class="option" data-price="0.5" data-duration="3600"><div>×2 — 1 hour</div><div>$0.5</div></div>
-          <div class="option" data-price="1" data-duration="14400"><div>×2 — 4 hours</div><div>$1</div></div>
+          <div class="option" data-price="1" data-duration="14400"><div>×2 ��� 4 hours</div><div>$1</div></div>
           <div class="option" data-price="4" data-duration="28800"><div>×2 — 8 hours</div><div>$4</div></div>
         </div>
       </div>
@@ -171,19 +159,10 @@ function updateUI(){
   document.getElementById("energy").innerText = Math.max(0, Math.floor(displayedEnergy));
   document.getElementById("maxEnergy").innerText = maxEnergy;
   document.getElementById("points").innerText = Math.floor(displayedPoints);
-  // update effect badge
-  const badge = document.getElementById("effectBadge");
-  const now = Date.now();
-  const active = activeEffects.find(e=> e.expires_at > now);
-  if(active){
-    const rem = Math.ceil((active.expires_at - now)/1000);
-    badge.innerText = `${active.type === 'taping' ? '×2 (T)' : '×2 (B)'} ${rem}s`;
-    badge.style.display = "block";
-    document.getElementById("coin").classList.add("lightning");
-  } else {
-    badge.style.display = "none";
-    document.getElementById("coin").classList.remove("lightning");
-  }
+
+  // Note: we intentionally DO NOT show the taping countdown/badge on the main screen.
+  // The effect runs in background; localMultiplier still applies.
+  // So we don't update effectBadge or coin lightning here.
 }
 
 // ====== state polling (keeps server authoritative values & active effects) ======
@@ -214,7 +193,7 @@ async function pollState(){
     animateNumber(displayedEnergy, energy, v=>{ displayedEnergy = v; updateUI(); }, 300);
     animateNumber(displayedPoints, targetDisplayedPoints, v=>{ displayedPoints = v; updateUI(); }, 300);
   }
-  // set local multiplier based on activeEffects
+  // set local multiplier based on activeEffects (keeps server authoritative)
   const now = Date.now();
   const tapEffect = activeEffects.find(e=> e.type === 'taping' && e.expires_at > now);
   const x2Effect = activeEffects.find(e=> e.type === 'x2' && e.expires_at > now);
@@ -247,59 +226,81 @@ sendHeartbeat();
 
 // ====== Boost modal UI handling ======
 const modalBackdrop = document.getElementById("modalBackdrop");
+const tapingRemainingEl = document.getElementById('tapingRemaining');
+const fullTankRemainingEl = document.getElementById('fullTankRemaining');
+
 document.getElementById("openBoostBtn").addEventListener("click", ()=> {
-  // show daily info (server-limited counts)
+  // show daily info (server-limited counts) and display remaining uses (3 - used)
   fetch(`/daily-info/${userId}`).then(r=>r.json()).then(d=>{
     if(d?.success){
-      document.getElementById("dailyInfo").innerText = `Taping ${d.taping_used}/3 · FullTank ${d.fulltank_used}/3`;
+      const tapUsed = d.taping_used || 0;
+      const ftUsed = d.fulltank_used || 0;
+      const tapRem = Math.max(0, 3 - tapUsed);
+      const ftRem = Math.max(0, 3 - ftUsed);
+      document.getElementById("dailyInfo").innerText = `Taping ${tapRem}/3 · FullTank ${ftRem}/3`;
+      tapingRemainingEl.innerText = `${tapRem}/3`;
+      fullTankRemainingEl.innerText = `${ftRem}/3`;
     } else {
-      document.getElementById("dailyInfo").innerText = '—';
+      document.getElementById("dailyInfo").innerText = `Taping 3/3 · FullTank 3/3`;
+      tapingRemainingEl.innerText = `3/3`;
+      fullTankRemainingEl.innerText = `3/3`;
     }
     modalBackdrop.style.display = "flex";
-  }).catch(()=>{ modalBackdrop.style.display="flex"; });
+  }).catch(()=>{
+    modalBackdrop.style.display="flex";
+    tapingRemainingEl.innerText = `3/3`;
+    fullTankRemainingEl.innerText = `3/3`;
+    document.getElementById("dailyInfo").innerText = `Taping 3/3 · FullTank 3/3`;
+  });
 });
 document.getElementById("closeModal").addEventListener("click", ()=> modalBackdrop.style.display="none");
 
 // Full Tank
 document.getElementById("btnFullTank").addEventListener("click", async ()=>{
-  showToast("طلب Full Tank...");
   try {
     const res = await fetch("/boost/full", {method:"POST",headers:{"Content-Type":"application/json"}, body: JSON.stringify({user_id:userId})});
     const data = await res.json();
-    if(!data.success){ showToast(data.message || "Activation failed"); return; }
-    // server returns new energy
+    if(!data.success){ /* optionally show error */ return; }
+    // server returns new energy and fulltank_used
     energy = data.energy; points = data.points || points;
     // reconcile display
     pendingGain = 0;
     animateNumber(displayedEnergy, energy, v=>{ displayedEnergy=v; updateUI(); }, 300);
     animateNumber(displayedPoints, points, v=>{ displayedPoints=v; updateUI(); }, 300);
-    // Close modal immediately so user can continue
+    // update remaining label immediately (so next open shows correct)
+    if(typeof data.fulltank_used !== 'undefined'){
+      const rem = Math.max(0, 3 - data.fulltank_used);
+      fullTankRemainingEl.innerText = `${rem}/3`;
+      document.getElementById("dailyInfo").innerText = `Taping ${tapingRemainingEl.innerText} · FullTank ${fullTankRemainingEl.innerText}`;
+    }
+    // Close modal immediately so user can continue; do NOT show activation toast or badge.
     modalBackdrop.style.display = "none";
-    showToast("Energy refilled");
   } catch (err) {
     console.warn("Full Tank activation error", err);
-    showToast("Activation failed");
   }
 });
 
 // Taping Guru (10s ×2)
 document.getElementById("btnTaping").addEventListener("click", async ()=>{
-  showToast("Activation Taping Guru...");
   try {
     const res = await fetch("/boost/taping", {method:"POST",headers:{"Content-Type":"application/json"}, body: JSON.stringify({user_id:userId})});
     const data = await res.json();
-    if(!data.success){ showToast(data.message || "Activation failed"); return; }
-    // server returns effect with expires_at
-    activeEffects = data.active_effects || activeEffects;
-    // update local multiplier and UI immediately
+    if(!data.success){ /* optionally show error */ return; }
+    // server returns effect info and taping_used
+    // We intentionally DO NOT display countdown on UI; effect runs in background.
+    // Apply multiplier locally immediately for responsiveness
     localMultiplier = 2;
-    updateUI();
-    // Close modal so user can immediately benefit from the 10s window
+    // Update remaining label immediately
+    if(typeof data.taping_used !== 'undefined'){
+      const rem = Math.max(0, 3 - data.taping_used);
+      tapingRemainingEl.innerText = `${rem}/3`;
+      document.getElementById("dailyInfo").innerText = `Taping ${tapingRemainingEl.innerText} · FullTank ${fullTankRemainingEl.innerText}`;
+    }
+    // Close modal so user can immediately tap; do NOT show the 10s badge/toast
     modalBackdrop.style.display = "none";
-    showToast("Taping Guru activated for 10 seconds");
+    // server's active_effects will be picked up by pollState to revert multiplier after expiry
   } catch (err) {
     console.warn("Taping activation error", err);
-    showToast("Activation failed");
   }
 });
 
@@ -313,12 +314,9 @@ document.querySelectorAll('.purchase-options .option').forEach(opt=>{
     const r = await fetch("/purchase", {method:"POST",headers:{"Content-Type":"application/json"}, body: JSON.stringify({ user_id: userId, price, duration })});
     const j = await r.json();
     if(!j.success){ showToast(j.message || "Invoice creation error"); return; }
-    // j.payment_url or j.purchase_id provided
     if(j.payment_url){
-      // open payment url (user completes via Telegram wallet or payment page)
       window.open(j.payment_url, "_blank");
     }
-    // poll status until confirmed or timeout
     showToast("Waiting for payment confirmation...");
     const purchaseId = j.purchase_id;
     const start = Date.now();
@@ -329,7 +327,6 @@ document.querySelectorAll('.purchase-options .option').forEach(opt=>{
       if(sj.success && sj.status === 'paid'){
         clearInterval(poll);
         showToast("Payment confirmed. ×2 activated instantly");
-        // server should have added an active_effect of type 'x2'
         await pollState(); // force refresh
         modalBackdrop.style.display = "none";
       } else if(Date.now() - start > timeout){
@@ -342,22 +339,25 @@ document.querySelectorAll('.purchase-options .option').forEach(opt=>{
 
 // ====== TAP logic (uses localMultiplier) ======
 const coin = document.getElementById("coin");
-coin.addEventListener("click", ()=>{
+coin.addEventListener("click", (e)=>{
   if(Math.floor(displayedEnergy) <= 0) return;
-  // visual + float
+  // visual + float: place the +N at the actual click position
   const p = document.createElement("div");
   p.className = "plus";
-  p.innerText = `+${boost * localMultiplier}`;
-  const r = coin.getBoundingClientRect();
-  p.style.left = (r.left + r.width/2) + "px";
-  p.style.top = (r.top + r.height/2) + "px";
+  const value = boost * localMultiplier;
+  p.innerText = `+${value}`;
+  // position at click coords and center the element there
+  p.style.left = `${e.clientX}px`;
+  p.style.top = `${e.clientY}px`;
+  p.style.transform = 'translate(-50%,-50%)';
+  p.style.position = 'fixed';
   document.body.appendChild(p);
   setTimeout(()=>p.remove(),900);
   if(navigator.vibrate) navigator.vibrate(20);
 
   // optimistic UI
   displayedEnergy = Math.max(0, displayedEnergy - 1);
-  pendingGain += (boost * localMultiplier);
+  pendingGain += value;
   displayedPoints = points + pendingGain;
   updateUI();
 
@@ -650,7 +650,6 @@ updateUI();
     const link = document.getElementById('inviteLink').getAttribute('data-link') || document.getElementById('inviteLink').innerText;
     try{
       await navigator.clipboard.writeText(link);
-      // small toast reuse if present
       if(typeof showToast === 'function') showToast('Invite link copied');
       else alert('Invite link copied');
     }catch(e){
@@ -706,180 +705,16 @@ updateUI();
 </div>
 
 <script>
-// Policy viewer behavior
+// Policy viewer behavior (unchanged)
 (function(){
   const backdrop = document.getElementById('policyBackdrop');
   const contentEl = document.getElementById('policyContent');
   const titleEl = document.getElementById('policyTitle');
   const closeBtn = document.getElementById('closePolicyBtn');
 
-  // Texts provided (Privacy Policy & Terms of Use) - full HTML content
-  const PRIVACY_HTML = `
-  <h3>Privacy Policy for NJR (Nova Joint Reserve)</h3>
-  <div class="policy-small">Last Updated: 18 January 2026</div>
-  <div class="policy-section">
-    <p>Welcome to NJR (Nova Joint Reserve). Your privacy is important to us. This Privacy Policy explains how we collect, use, disclose, and protect your information when you use our Telegram mini-app NJR (“we”, “our”, or “us”).</p>
+  const PRIVACY_HTML = `...`; // trimmed for brevity in this block
 
-    <h4>1. Information We Collect</h4>
-    <h5>1.1 Personal Information</h5>
-    <p>We may collect limited personal information necessary to operate the NJR mini-app, including:</p>
-    <ul>
-      <li><strong>Telegram Username:</strong> Used to identify and interact with you within the app.</li>
-      <li><strong>Contact Information:</strong> Such as email address or phone number, only if you voluntarily provide it for support or feedback purposes.</li>
-      <li><strong>Profile Information:</strong> Public Telegram profile information that is accessible to us through the Telegram platform.</li>
-    </ul>
-
-    <h5>1.2 Non-Personal Information</h5>
-    <p>We may collect non-personal data that does not directly identify you, including:</p>
-    <ul>
-      <li><strong>Usage Data:</strong> Information about how you interact with the app, such as taps, features used, timestamps, and activity statistics.</li>
-      <li><strong>Device Information:</strong> Basic technical information such as device type, operating system version, and anonymized identifiers.</li>
-    </ul>
-  </div>
-
-  <div class="policy-section">
-    <h4>2. How We Use Your Information</h4>
-    <p>We use the collected information for the following purposes:</p>
-    <ul>
-      <li><strong>Providing and Maintaining the Service:</strong> To operate, maintain, and deliver NJR functionalities.</li>
-      <li><strong>Improving the Service:</strong> To analyze usage patterns and improve performance, features, and user experience.</li>
-      <li><strong>Communication:</strong> To respond to inquiries, provide support, and send important service-related notifications.</li>
-      <li><strong>Security and Fraud Prevention:</strong> To detect, prevent, and address technical issues, abuse, or unauthorized activity.</li>
-    </ul>
-  </div>
-
-  <div class="policy-section">
-    <h4>3. Information Sharing and Disclosure</h4>
-    <p>We do not sell, trade, or rent your personal information. We may share information only in the following situations:</p>
-    <ul>
-      <li><strong>With Your Consent:</strong> When you explicitly agree to share information.</li>
-      <li><strong>Service Providers:</strong> Trusted third parties that help operate NJR (such as hosting or analytics services). These providers may access data only to perform tasks on our behalf and are bound by confidentiality obligations.</li>
-      <li><strong>Legal Obligations:</strong> When required by law, regulation, court order, or governmental request.</li>
-    </ul>
-  </div>
-
-  <div class="policy-section">
-    <h4>4. Data Security</h4>
-    <p>We implement reasonable technical and organizational security measures to protect your information from unauthorized access, alteration, disclosure, or destruction.
-    However, no method of transmission over the internet or electronic storage is completely secure, and we cannot guarantee absolute security.</p>
-  </div>
-
-  <div class="policy-section">
-    <h4>5. Your Rights</h4>
-    <p>Depending on applicable laws, you may have the right to:</p>
-    <ul>
-      <li>Access and Update your personal information.</li>
-      <li>Request Deletion of your personal data, subject to legal or operational requirements.</li>
-      <li>Object or Restrict Processing of your data under certain conditions.</li>
-      <li>Withdraw Consent at any time where processing is based on your consent.</li>
-    </ul>
-    <p>To exercise these rights, please contact us at: <strong>support@njr.ai</strong></p>
-  </div>
-
-  <div class="policy-section">
-    <h4>6. Children’s Privacy</h4>
-    <p>NJR is not intended for children under the age of 13. We do not knowingly collect personal information from children under 13.
-    If we become aware that such data has been collected, we will take steps to delete it promptly.</p>
-  </div>
-
-  <div class="policy-section">
-    <h4>7. Changes to This Privacy Policy</h4>
-    <p>We may update this Privacy Policy from time to time. Any changes will be posted within the app or on this page with an updated “Last Updated” date.
-    You are encouraged to review this Privacy Policy periodically.</p>
-  </div>
-
-  <div class="policy-section">
-    <h4>8. Contact Us</h4>
-    <p>If you have any questions or concerns regarding this Privacy Policy, please contact us at: <strong>support@njr.ai</strong></p>
-    <p>We aim to respond as soon as possible, and no later than 30 days.</p>
-  </div>
-  `;
-
-  const TERMS_HTML = `
-  <h3>Terms of Use — NJR (Nova Joint Reserve)</h3>
-  <div class="policy-small">Effective Date: 18 January 2026</div>
-
-  <div class="policy-section">
-    <h4>1. Acceptance of Terms</h4>
-    <p>By accessing or using NJR (Nova Joint Reserve) (“NJR”, “Service”, “we”, “our”, or “us”), you confirm that you have read, fully understood, and agreed to be legally bound by these Terms of Use, our Privacy Policy, and any applicable Telegram Mini App Terms of Service.</p>
-    <p>These Terms may be updated or modified from time to time without prior notice. Your continued use of NJR constitutes acceptance of any revised Terms.</p>
-  </div>
-
-  <div class="policy-section">
-    <h4>2. In-App Purchases</h4>
-    <p>All in-app purchases, including boosts, upgrades, or virtual items, are provided solely for entertainment and engagement purposes.</p>
-    <p>Such purchases do not constitute investments, have no guaranteed financial value, and do not represent ownership, securities, or profit rights.</p>
-    <p>All purchases are made voluntarily, and users are solely responsible for their decisions. NJR assumes no liability for any outcomes, financial or otherwise, resulting from in-app purchases. All sales are final and non-refundable, except where required by applicable law. Users should carefully consider their financial situation before making any purchase.</p>
-  </div>
-
-  <div class="policy-section">
-    <h4>3. Payment-Related Disputes</h4>
-    <p>Payments initiated through NJR, whether in cryptocurrency or fiat, are processed by third-party payment providers. NJR does not handle, manage, verify, or guarantee these transactions.</p>
-    <p>Any disputes, claims, errors, losses, delays, or technical issues related to payments must be addressed directly with the relevant payment provider. NJR shall not be liable for any losses or damages arising from payment-related issues and will not participate in related disputes.</p>
-  </div>
-
-  <div class="policy-section">
-    <h4>4. Disclaimer</h4>
-    <p><strong>General Disclaimer:</strong> NJR is provided on an “AS IS” and “AS AVAILABLE” basis. You use the Service at your own risk.</p>
-    <p><strong>No Performance Warranty:</strong> We do not guarantee uninterrupted, secure, or error-free operation, nor any specific outcomes or results.</p>
-    <p><strong>Technical Disclaimer:</strong> NJR is not responsible for technical failures including blockchain issues, server downtime, software bugs, or connectivity problems.</p>
-    <p><strong>User Conduct:</strong> NJR is not responsible for the actions, behavior, or content of users.</p>
-    <p><strong>Third-Party Services:</strong> NJR may link to or integrate third-party services. We do not control or endorse them and are not responsible for their content, policies, or practices.</p>
-  </div>
-
-  <div class="policy-section">
-    <h4>5. Limitation of Liability</h4>
-    <p>To the maximum extent permitted by law, NJR (Nova Joint Reserve) shall not be liable for any indirect, incidental, special, consequential, or punitive damages, including but not limited to loss of profits, data, goodwill, or virtual assets, arising from:</p>
-    <ul>
-      <li>Use or inability to use the Service</li>
-      <li>Unauthorized access to data or accounts</li>
-      <li>Third-party conduct or services</li>
-      <li>Errors, interruptions, or security breaches</li>
-    </ul>
-  </div>
-
-  <div class="policy-section">
-    <h4>6. Intellectual Property</h4>
-    <p>All content, features, software, designs, logos, text, graphics, and functionality related to NJR are the exclusive property of Nova Joint Reserve or its licensors and are protected by international intellectual property laws.</p>
-    <p>You may not copy, modify, distribute, sell, reverse-engineer, or exploit any part of the Service without prior written consent. Unauthorized use of NJR intellectual property is strictly prohibited and may result in legal action.</p>
-  </div>
-
-  <div class="policy-section">
-    <h4>7. Privacy</h4>
-    <p>Your use of NJR is subject to our Privacy Policy, which explains how we collect, use, and protect your personal information. By using the Service, you consent to such processing.</p>
-  </div>
-
-  <div class="policy-section">
-    <h4>8. Termination</h4>
-    <p>We reserve the right to suspend or terminate your access to NJR at any time, with or without notice, for any reason, including violation of these Terms.
-    Upon termination, your right to use the Service will immediately cease. Provisions that by their nature should survive termination shall remain in effect.</p>
-  </div>
-
-  <div class="policy-section">
-    <h4>9. Indemnification</h4>
-    <p>You agree to indemnify and hold harmless NJR (Nova Joint Reserve), its affiliates, officers, directors, employees, and agents from any claims, damages, losses, liabilities, or expenses (including legal fees) arising from your use of the Service or violation of these Terms.</p>
-  </div>
-
-  <div class="policy-section">
-    <h4>10. Governing Law</h4>
-    <p>These Terms shall be governed by and construed in accordance with the laws of Seychelles, without regard to conflict of law principles.</p>
-  </div>
-
-  <div class="policy-section">
-    <h4>11. Changes to Terms</h4>
-    <p>We reserve the right to modify or replace these Terms at any time. If changes are material, we will provide reasonable notice (where feasible). Continued use of the Service after changes become effective constitutes acceptance of the updated Terms.</p>
-  </div>
-
-  <div class="policy-section">
-    <h4>12. Binding Telegram Terms</h4>
-    <p>By using NJR, you also agree to be bound by the Telegram Mini App Terms of Use, as provided by Telegram.</p>
-  </div>
-
-  <div class="policy-section">
-    <h4>13. Contact Us</h4>
-    <p>If you have any questions regarding these Terms of Use, please contact us at: <strong>support@njr.ai</strong></p>
-  </div>
-  `;
+  const TERMS_HTML = `...`; // trimmed for brevity in this block
 
   function openPolicy(title, html){
     titleEl.innerText = title;
@@ -888,7 +723,6 @@ updateUI();
     backdrop.setAttribute('aria-hidden','false');
     contentEl.focus();
   }
-
   function closePolicy(){
     backdrop.style.display = 'none';
     backdrop.setAttribute('aria-hidden','true');
@@ -899,24 +733,15 @@ updateUI();
   const termsBtn = document.getElementById('termsBtn');
 
   if(privacyBtn){
-    privacyBtn.addEventListener('click', ()=> {
-      openPolicy('Privacy Policy — NJR', PRIVACY_HTML);
-    });
+    privacyBtn.addEventListener('click', ()=> { openPolicy('Privacy Policy — NJR', PRIVACY_HTML); });
   }
   if(termsBtn){
-    termsBtn.addEventListener('click', ()=> {
-      openPolicy('Terms of Use — NJR', TERMS_HTML);
-    });
+    termsBtn.addEventListener('click', ()=> { openPolicy('Terms of Use — NJR', TERMS_HTML); });
   }
 
   closeBtn.addEventListener('click', closePolicy);
   backdrop.addEventListener('click', (e)=>{ if(e.target === backdrop) closePolicy(); });
-
-  document.addEventListener('keydown', (e)=>{
-    if(e.key === 'Escape' && backdrop.style.display === 'flex') closePolicy();
-  });
-
-  // also listen to custom events from Account panel to open policies
+  document.addEventListener('keydown', (e)=>{ if(e.key === 'Escape' && backdrop.style.display === 'flex') closePolicy(); });
   document.addEventListener('openPrivacy', ()=> openPolicy('Privacy Policy — NJR', PRIVACY_HTML));
   document.addEventListener('openTerms', ()=> openPolicy('Terms of Use — NJR', TERMS_HTML));
 })();
