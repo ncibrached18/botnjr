@@ -266,6 +266,9 @@ let initialLoaded=false;
 let activeEffects = [];
 let localMultiplier = 1; // used for client immediate tap multiplier
 
+// NEW: localMultitap represents how many taps per click (authoritative value comes from server /state)
+let localMultitap = 1;
+
 // Booster levels (will try to fetch from server; fallback to defaults)
 let userBoostLevels = {
   multitap: 1,
@@ -406,6 +409,13 @@ async function pollState(){
   if(!data || !data.success) return;
   const prevPoints = points;
   energy = data.energy; maxEnergy = data.maxEnergy; points = (typeof data.points === 'number') ? data.points : points;
+  // IMPORTANT: update localMultitap from server authoritative value
+  if (typeof data.multitap !== 'undefined') {
+    localMultitap = Number(data.multitap) || 1;
+  } else if (data.levels && typeof data.levels.multitap !== 'undefined') {
+    // fallback: multitap numeric = 1 + level
+    localMultitap = 1 + Number(data.levels.multitap || 0);
+  }
   activeEffects = (data.active_effects || []).map(e=> ({...e, expires_at: e.expires_at}));
   const confirmedGain = Math.max(0, points - prevPoints);
   pendingGain = Math.max(0, pendingGain - confirmedGain);
@@ -699,6 +709,9 @@ getCoinBtn.addEventListener('click', async ()=>{
     // close modal after a short delay
     setTimeout(()=>{ coinDetailBackdrop.style.display='none'; coinDetailBackdrop.setAttribute('aria-hidden','true'); }, 900);
 
+    // IMPORTANT: refresh authoritative state so localMultitap updates immediately
+    await pollState();
+
   } catch(err){
     console.error('upgrade error', err);
     showToast('خطأ في الاتصال، حاول لاحقًا');
@@ -711,13 +724,22 @@ getCoinBtn.addEventListener('click', async ()=>{
   }
 });
 
-// ====== TAP logic (unchanged) ======
-const coin = document.getElementById("coin");
-coin.addEventListener("click", (e)=>{
-  if(Math.floor(displayedEnergy) <= 0) return;
+// ====== TAP logic (FIXED: display uses localMultitap and energy cost = localMultitap) ======
+const coinEl = document.getElementById("coin");
+coinEl.addEventListener("click", (e)=>{
+  // cost equals number of taps (multitap)
+  const tapCost = localMultitap;
+  if (Math.floor(displayedEnergy) < tapCost) {
+    showToast('Not enough energy');
+    return;
+  }
+
+  // visible value using current local state and multiplier
+  const value = boost * localMultitap * localMultiplier;
+
+  // visual + float
   const p = document.createElement("div");
   p.className = "plus";
-  const value = boost * localMultiplier;
   p.innerText = `+${value}`;
   p.style.left = `${e.clientX}px`;
   p.style.top = `${e.clientY}px`;
@@ -727,21 +749,26 @@ coin.addEventListener("click", (e)=>{
   setTimeout(()=>p.remove(),900);
   if(navigator.vibrate) navigator.vibrate(20);
 
-  displayedEnergy = Math.max(0, displayedEnergy - 1);
+  // optimistic UI update: subtract energy by tapCost and add pendingGain by value
+  displayedEnergy = Math.max(0, displayedEnergy - tapCost);
   pendingGain += value;
   displayedPoints = points + pendingGain;
   updateUI();
 
+  // send tap to server (server will validate energy & compute authoritative gain)
   fetch("/tap", {method:"POST",headers:{"Content-Type":"application/json"},body: JSON.stringify({user_id:userId})})
     .then(r=>r.json())
     .then(data=>{
       if(!data.success){
+        // rollback/sync
         pollState();
         return;
       }
+      // server confirms: update authoritative values
       energy = data.energy;
       points += data.gain;
       pendingGain = Math.max(0, pendingGain - data.gain);
+      // reconcile displays
       animateNumber(displayedEnergy, energy, v=>{ displayedEnergy=v; updateUI(); }, 300);
       animateNumber(displayedPoints, points + pendingGain, v=>{ displayedPoints=v; updateUI(); }, 300);
     }).catch(err=>{
