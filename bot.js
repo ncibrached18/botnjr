@@ -101,7 +101,7 @@ bot.onText(/\/start(?:\s(.+))?/, async (msg, match) => {
       maxEnergy: MAX_ENERGY,
       regenRate: REGEN_RATE,
       boost: 1,
-      // multitap numeric value: default 1 (1 tap per click). Upgrades will increase it.
+      // numeric multitap value (how many taps per click). default 1.
       multitap: 1,
       // levels map for storing upgrade levels (multitap level starts at 0)
       levels: { multitap: 0, energylimit: 0, recharge: 0, tapbot: 0 },
@@ -319,6 +319,24 @@ app.get("/state/:userId", async (req, res) => {
   } catch (err) {
     console.error("state error", err);
     res.json({ success: false });
+  }
+});
+
+// ================= BOOST LEVELS endpoint =================
+app.get("/boost/levels/:userId", async (req, res) => {
+  try {
+    const userId = String(req.params.userId);
+    const ref = db.collection("users").doc(userId);
+    const snap = await ref.get();
+    if (!snap.exists) return res.json({ success: false, message: "user not found" });
+    const data = snap.data();
+    const levels = data.levels || {};
+    // ensure numeric
+    Object.keys(levels).forEach(k => levels[k] = Number(levels[k] || 0));
+    return res.json({ success: true, levels });
+  } catch (err) {
+    console.error("/boost/levels error", err);
+    return res.json({ success: false, message: "internal error" });
   }
 });
 
@@ -682,10 +700,12 @@ app.post('/boost/upgrade', async (req, res) => {
       return res.json(result);
     }
 
-    // read fresh points to return authoritative number
+    // read fresh points to return authoritative number and levels/multitap
     const freshSnap = await userRef.get();
     const fresh = freshSnap.exists ? freshSnap.data() : null;
     const freshPoints = fresh ? Number(fresh.points || 0) : null;
+    const freshLevels = fresh ? (fresh.levels || {}) : {};
+    const freshMultitap = fresh ? (fresh.multitap || 1) : 1;
 
     console.log('[boost/upgrade] success', { user_id, item, new_level: result.new_level, points: freshPoints });
 
@@ -693,6 +713,8 @@ app.post('/boost/upgrade', async (req, res) => {
       success: true,
       new_level: result.new_level,
       points: freshPoints,
+      levels: freshLevels,
+      multitap: freshMultitap,
       message: 'upgraded'
     });
   } catch (err) {
