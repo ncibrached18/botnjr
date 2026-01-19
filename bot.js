@@ -101,7 +101,10 @@ bot.onText(/\/start(?:\s(.+))?/, async (msg, match) => {
       maxEnergy: MAX_ENERGY,
       regenRate: REGEN_RATE,
       boost: 1,
+      // multitap numeric value: default 1 (1 tap per click). Upgrades will increase it.
       multitap: 1,
+      // levels map for storing upgrade levels (multitap level starts at 0)
+      levels: { multitap: 0, energylimit: 0, recharge: 0, tapbot: 0 },
       level: 1,
       lastEnergyUpdate: now,
       createdAt: now,
@@ -560,70 +563,14 @@ app.get("/global-stats", async (req, res) => {
   }
 });
 
-// ================= TAP =================
-app.post("/tap", async (req, res) => {
-  try {
-    const { user_id } = req.body;
-    const ref = db.collection("users").doc(String(user_id));
-    const snap = await ref.get();
-
-    if (!snap.exists) return res.json({ success: false });
-
-    const user = snap.data();
-    const now = Date.now();
-
-    const elapsed = Math.floor((now - (user.lastEnergyUpdate || now)) / 1000);
-    let energy = Math.min(
-      user.maxEnergy,
-      Math.floor((user.energy || 0) + elapsed * (user.regenRate || REGEN_RATE))
-    );
-
-    if (energy <= 0) {
-      return res.json({ success: false, energy });
-    }
-
-    energy -= 1;
-
-    // determine multiplier from active effects (taping or x2)
-    const active_effects = Array.isArray(user.active_effects) ? user.active_effects.filter(e => (e.expires_at || 0) > now) : [];
-    const hasTaping = active_effects.some(e => e.type === 'taping' && e.expires_at > now);
-    const hasX2 = active_effects.some(e => e.type === 'x2' && e.expires_at > now);
-    const extraMultiplier = (hasTaping || hasX2) ? 2 : 1;
-
-    const baseGain = (user.boost || 1) * (user.multitap || 1);
-    const gain = Math.round(baseGain * extraMultiplier);
-
-    // update user and global meta
-    await ref.update({
-      energy,
-      points: admin.firestore.FieldValue.increment(gain),
-      lastEnergyUpdate: now,
-      touches: admin.firestore.FieldValue.increment(1),
-      lastActive: now
-    });
-
-    // increment meta counters
-    await incMeta({ total_touches: 1, total_share_balance: gain });
-
-    res.json({
-      success: true,
-      energy,
-      gain
-    });
-  } catch (err) {
-    console.error("tap error", err);
-    res.json({ success: false });
-  }
-});
-
-// ====== ADDITION: /boost/upgrade route and boosters metadata ======
-// ضع هذا البلوك قبل app.listen(...) في bot.js
-
+// ================= BOOSTERS CONFIG (Multitap updated to requested costs/behavior) =================
 const boostersData = {
+  // Multitap costs updated per your list: level1 => +2 taps cost 600, level2 => +3 taps cost 1500, ...
   multitap: {
     name: 'Multitap',
-    costs: [200,600,1500,4000,10000,25000,60000,150000,350000,800000],
-    maxLevel: 10
+    // costs array: index 0 -> cost to go from level 0 -> level1 (which yields multitap value 2)
+    costs: [600,1500,4000,10000,25000,60000,150000,350000,800000],
+    maxLevel: 9
   },
   energylimit: {
     name: 'Energy limit',
@@ -699,8 +646,12 @@ app.post('/boost/upgrade', async (req, res) => {
 
       // apply immediate effects per item
       if (item === 'multitap') {
-        // store multitap numeric (client uses user.multitap)
-        updates['multitap'] = (user.multitap || 1) + 1; // adjust base if needed
+        // Desired behavior:
+        // - level 1 -> multitap value = 2
+        // - level 2 -> multitap value = 3
+        // etc.
+        // We maintain numeric multitap in user.multitap and increment it by 1 per upgrade from default 1.
+        updates['multitap'] = (user.multitap || 1) + 1;
       } else if (item === 'energylimit') {
         // map level -> extra energy; keep same mapping as client if desired
         const energyByLevel = [100,150,200,300,400,600,800,1000,1300,1600];
@@ -751,6 +702,70 @@ app.post('/boost/upgrade', async (req, res) => {
   } catch (err) {
     console.error('[boost/upgrade] error', err);
     return res.status(500).json({ success: false, message: 'internal error' });
+  }
+});
+
+// ================= TAP (updated: energy cost = multitap count, gain = multitap count * boost * effect) =================
+app.post("/tap", async (req, res) => {
+  try {
+    const { user_id } = req.body;
+    const ref = db.collection("users").doc(String(user_id));
+    const snap = await ref.get();
+
+    if (!snap.exists) return res.json({ success: false });
+
+    const user = snap.data();
+    const now = Date.now();
+
+    // recompute current energy from lastEnergyUpdate
+    const elapsed = Math.floor((now - (user.lastEnergyUpdate || now)) / 1000);
+    let energy = Math.min(
+      user.maxEnergy,
+      Math.floor((user.energy || 0) + elapsed * (user.regenRate || REGEN_RATE))
+    );
+
+    // determine how many taps per click (multitap value)
+    const multitapCount = Number(user.multitap || 1); // e.g., level 1 => 2, level 3 => 4 depending on upgrades
+
+    // require enough energy to perform multitapCount taps
+    if (energy < multitapCount) {
+      return res.json({ success: false, energy, message: 'insufficient energy' });
+    }
+
+    // determine multiplier from active effects (taping or x2)
+    const active_effects = Array.isArray(user.active_effects) ? user.active_effects.filter(e => (e.expires_at || 0) > now) : [];
+    const hasTaping = active_effects.some(e => e.type === 'taping' && e.expires_at > now);
+    const hasX2 = active_effects.some(e => e.type === 'x2' && e.expires_at > now);
+    const extraMultiplier = (hasTaping || hasX2) ? 2 : 1;
+
+    // compute gain: (boost * multitapCount) * extraMultiplier
+    const boostVal = Number(user.boost || 1);
+    const baseGain = boostVal * multitapCount;
+    const gain = Math.round(baseGain * extraMultiplier);
+
+    // reduce energy by multitapCount
+    energy = Math.max(0, energy - multitapCount);
+
+    // update user and global meta
+    await ref.update({
+      energy,
+      points: admin.firestore.FieldValue.increment(gain),
+      lastEnergyUpdate: now,
+      touches: admin.firestore.FieldValue.increment(1),
+      lastActive: now
+    });
+
+    // increment meta counters
+    await incMeta({ total_touches: 1, total_share_balance: gain });
+
+    res.json({
+      success: true,
+      energy,
+      gain
+    });
+  } catch (err) {
+    console.error("tap error", err);
+    res.json({ success: false });
   }
 });
 
