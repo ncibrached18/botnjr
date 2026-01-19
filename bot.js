@@ -616,6 +616,144 @@ app.post("/tap", async (req, res) => {
   }
 });
 
+// ====== ADDITION: /boost/upgrade route and boosters metadata ======
+// ضع هذا البلوك قبل app.listen(...) في bot.js
+
+const boostersData = {
+  multitap: {
+    name: 'Multitap',
+    costs: [200,600,1500,4000,10000,25000,60000,150000,350000,800000],
+    maxLevel: 10
+  },
+  energylimit: {
+    name: 'Energy limit',
+    costs: [200,500,1200,3000,8000,20000,50000,120000,300000,700000],
+    maxLevel: 10
+  },
+  recharge: {
+    name: 'Recharging speed',
+    costs: [2000,5000,12000,30000,70000,150000,350000,800000,1800000,4000000],
+    maxLevel: 10
+  },
+  tapbot: {
+    name: 'Tap Bot',
+    levels: [
+      { clicks_per_sec:1, duration_hrs:2, cost:200000 },
+      { clicks_per_sec:2, duration_hrs:4, cost:500000 },
+      { clicks_per_sec:4, duration_hrs:6, cost:1500000 },
+      { clicks_per_sec:7, duration_hrs:9, cost:4000000 },
+      { clicks_per_sec:12, duration_hrs:12, cost:10000000 }
+    ],
+    maxLevel: 5
+  }
+};
+
+function getNextCostFromDef(levelsObj, itemKey) {
+  const def = boostersData[itemKey];
+  if (!def) return null;
+  const cur = Number((levelsObj && levelsObj[itemKey]) || 0);
+  if (itemKey === 'tapbot') {
+    if (cur >= def.maxLevel) return null;
+    return def.levels[cur].cost; // cur is current level, next level index = cur
+  } else {
+    if (cur >= def.costs.length) return null;
+    return def.costs[cur];
+  }
+}
+
+// POST /boost/upgrade
+// body: { user_id, item }  item ∈ ['multitap','energylimit','recharge','tapbot']
+app.post('/boost/upgrade', async (req, res) => {
+  try {
+    const { user_id, item } = req.body || {};
+    console.log('[boost/upgrade] request', { user_id, item });
+    if (!user_id || !item) return res.json({ success: false, message: 'missing parameters' });
+    if (!boostersData[item]) return res.json({ success: false, message: 'invalid item' });
+
+    const userRef = db.collection('users').doc(String(user_id));
+
+    const result = await db.runTransaction(async (t) => {
+      const snap = await t.get(userRef);
+      if (!snap.exists) return { success: false, message: 'user not found' };
+      const user = snap.data();
+
+      // ensure levels map exists
+      const levels = user.levels || {};
+      const curLevel = Number(levels[item] || 0);
+      const cost = getNextCostFromDef(levels, item);
+      if (cost === null) return { success: false, message: 'max level' };
+
+      const currentPoints = Number(user.points || 0);
+      if (currentPoints < cost) {
+        return { success: false, message: 'insufficient funds', points: currentPoints };
+      }
+
+      // Build updates
+      const newLevel = curLevel + 1;
+      const updates = {};
+      // update nested levels map
+      updates['levels'] = { ...(user.levels || {}), [item]: newLevel };
+
+      // deduct points
+      updates['points'] = admin.firestore.FieldValue.increment(-cost);
+
+      // apply immediate effects per item
+      if (item === 'multitap') {
+        // store multitap numeric (client uses user.multitap)
+        updates['multitap'] = (user.multitap || 1) + 1; // adjust base if needed
+      } else if (item === 'energylimit') {
+        // map level -> extra energy; keep same mapping as client if desired
+        const energyByLevel = [100,150,200,300,400,600,800,1000,1300,1600];
+        const added = energyByLevel[Math.max(0, newLevel-1)] || 0;
+        updates['maxEnergy'] = 500 + added; // example: base 500 + mapping
+        // ensure current energy <= new max
+        if ((user.energy || 0) > (500 + added)) updates['energy'] = 500 + added;
+      } else if (item === 'recharge') {
+        const speeds = [1,1.3,1.6,2,2.5,3,3.5,4,4.5,5];
+        const newSpeed = speeds[Math.max(0,newLevel-1)] || (user.regenRate || REGEN_RATE);
+        updates['regenRate'] = newSpeed;
+      } else if (item === 'tapbot') {
+        updates['tapbot_level'] = newLevel;
+      }
+
+      updates['lastActive'] = Date.now();
+
+      // perform update
+      t.update(userRef, updates);
+
+      // return new_level and cost (points will be read after transaction)
+      return { success: true, new_level: newLevel, cost };
+    });
+
+    if (!result) {
+      console.error('[boost/upgrade] transaction returned falsy');
+      return res.json({ success: false, message: 'transaction failed' });
+    }
+    if (!result.success) {
+      // not enough points or other user-level limit
+      console.log('[boost/upgrade] failed:', result.message);
+      return res.json(result);
+    }
+
+    // read fresh points to return authoritative number
+    const freshSnap = await userRef.get();
+    const fresh = freshSnap.exists ? freshSnap.data() : null;
+    const freshPoints = fresh ? Number(fresh.points || 0) : null;
+
+    console.log('[boost/upgrade] success', { user_id, item, new_level: result.new_level, points: freshPoints });
+
+    return res.json({
+      success: true,
+      new_level: result.new_level,
+      points: freshPoints,
+      message: 'upgraded'
+    });
+  } catch (err) {
+    console.error('[boost/upgrade] error', err);
+    return res.status(500).json({ success: false, message: 'internal error' });
+  }
+});
+
 // ================= SERVER =================
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
