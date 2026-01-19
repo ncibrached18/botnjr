@@ -187,39 +187,36 @@ bot.onText(/\/start(?:\s(.+))?/, async (msg, match) => {
           });
 
           // If meta doc wasn't updated in tx above (rare), ensure increments
-await incMeta({ total_share_balance: FIRST_TIME_GIFT + REFERRER_BONUS, total_referrals: 1 });
+          await incMeta({ total_share_balance: FIRST_TIME_GIFT + REFERRER_BONUS, total_referrals: 1 });
 
- // notify both parties (safe best-effort)
-try {
-  // notify new user
-  await bot.sendMessage(
-    msg.chat.id,
-    `🎉 Welcome! You registered via a referral link and received ${FIRST_TIME_GIFT} bonus points.`
-  );
-} catch (e) { /* ignore notification errors */ }
+          // notify both parties (safe best-effort)
+          try {
+            // notify new user
+            await bot.sendMessage(
+              msg.chat.id,
+              `🎉 Welcome! You registered via a referral link and received ${FIRST_TIME_GIFT} bonus points.`
+            );
+          } catch (e) { /* ignore notification errors */ }
 
-try {
-  // notify referrer (best-effort, only if bot can message them)
-  await bot.sendMessage(
-    Number(referrerId),
-    `✅ You have a new referral! ${REFERRER_BONUS} points have been added to your account.`
-  );
-} catch (e) {
-  // it's normal if bot can't message the referrer (e.g. never started), ignore
-}
-} catch (err) {
-  console.error("Referral transaction failed:", err);
-}
-} else {
-  // payload was self-referral or invalid — still set referrer field to null
-  await ref.update({ referrer: null }).catch(()=>{});
-}
-}
-
-
+          try {
+            // notify referrer (best-effort, only if bot can message them)
+            await bot.sendMessage(
+              Number(referrerId),
+              `✅ You have a new referral! ${REFERRER_BONUS} points have been added to your account.`
+            );
+          } catch (e) {
+            // it's normal if bot can't message the referrer (e.g. never started), ignore
+          }
+        } catch (err) {
+          console.error("Referral transaction failed:", err);
+        }
+      } else {
+        // payload was self-referral or invalid — still set referrer field to null
+        await ref.update({ referrer: null }).catch(()=>{});
+      }
+    }
   } else {
     // user exists: optional handling if payload is present and user had no referrer previously
-    // We'll allow setting referrer only if user hasn't been awarded previously and has no referrer
     if (payload && payload.startsWith("r_")) {
       const referrerId = payload.slice(2);
       if (referrerId && referrerId !== userId) {
@@ -308,13 +305,16 @@ app.get("/state/:userId", async (req, res) => {
     // filter active effects to only non-expired (do not persist removal here to keep GET read-only)
     const active_effects = Array.isArray(user.active_effects) ? user.active_effects.filter(e => (e.expires_at || 0) > now) : [];
 
+    // return multitap and levels so frontend can update its display
     res.json({
       success: true,
       energy,
       maxEnergy: user.maxEnergy,
       points: user.points,
       referral_bonus_total: user.referral_bonus_total || 0,
-      active_effects
+      active_effects,
+      multitap: user.multitap || 1,
+      levels: user.levels || {}
     });
   } catch (err) {
     console.error("state error", err);
@@ -646,11 +646,7 @@ app.post('/boost/upgrade', async (req, res) => {
 
       // apply immediate effects per item
       if (item === 'multitap') {
-        // Desired behavior:
-        // - level 1 -> multitap value = 2
-        // - level 2 -> multitap value = 3
-        // etc.
-        // We maintain numeric multitap in user.multitap and increment it by 1 per upgrade from default 1.
+        // desired behavior: numeric multitap becomes 1 + level (so level1->2, level3->4)
         updates['multitap'] = (user.multitap || 1) + 1;
       } else if (item === 'energylimit') {
         // map level -> extra energy; keep same mapping as client if desired
