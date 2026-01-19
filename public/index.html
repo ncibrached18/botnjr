@@ -8,229 +8,150 @@
 <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap" rel="stylesheet">
 
 <style>
-/* قواعد أساسية + تصميم مطابق للصورة */
+/* نفس CSS الأصلي مع إضافات للمودال والوميض */
 *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color: transparent;}
-html,body{width:100%;height:100%;overflow:hidden;font-family:'Poppins',system-ui;background: radial-gradient(circle at top left,#3a2b4b 0%, #241a30 35%, #141019 100%);color:#fff;direction:rtl}
-.top{display:flex;align-items:center;justify-content:space-between;padding:18px 18px 8px;gap:12px;}
-.title-pill{
-  flex:1;
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
-  background:linear-gradient(90deg, rgba(255,255,255,0.03), rgba(255,255,255,0.01));
-  padding:12px 18px;
-  border-radius:12px;
-  font-weight:700;
-  color:#efe9ff;
-  box-shadow: inset 0 -2px 0 rgba(0,0,0,0.2);
-}
-.top-right{
-  display:flex;
-  gap:10px;
-  align-items:center;
-}
-.pill-small{
-  background:linear-gradient(90deg,#3a2743,#463254);
-  color:#ffdd7a;
-  padding:8px 10px;
-  border-radius:12px;
-  font-weight:700;
-  display:flex;
-  align-items:center;
-  gap:8px;
-  min-width:86px;
-  justify-content:center;
-  border:1px solid rgba(255,255,255,0.03);
-}
+html,body{width:100%;height:100%;overflow:hidden;font-family:'Poppins',system-ui;background: radial-gradient(circle at top,#2e2440,#1a1426);color:#fff;}
+.top{display:flex;align-items:center;justify-content:space-between;padding:14px 16px;}
+.wallet{background:rgba(255,255,255,.08);padding:10px 14px;border-radius:14px;font-size:14px;}
+.balance{display:flex;align-items:center;gap:10px;background:rgba(255,255,255,.08);padding:10px 14px;border-radius:14px;font-weight:700;}
+.balance span{color:#22f3c8;}
+.center{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;position:relative;}
+.coin{width:280px;height:280px;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:transform .1s ease;user-select:none;position:relative;}
+.coin:active{transform:scale(.95);}
+.coin img{width:100%;height:100%;object-fit:contain;user-select:none;pointer-events:none;}
+.plus{position:absolute;color:#ffffff;font-weight:700;font-size:22px;animation:floatUp .9s ease forwards;pointer-events:none;}
+@keyframes floatUp{from{opacity:1;transform:translateY(0)} to{opacity:0;transform:translateY(-80px)}}
+.energy-boost{margin-top:26px;display:flex;gap:14px;}
+.box{background:rgba(255,255,255,.08);padding:12px 18px;border-radius:14px;font-weight:600;}
+.boost{ color:#ff9b2f }
+.bottom{position:fixed;bottom:12px;left:12px;right:12px;background:rgba(255,255,255,.07);border-radius:18px;padding:10px;display:flex;justify-content:space-around;}
+.nav{display:flex;flex-direction:column;align-items:center;gap:6px;font-size:13px;opacity:.7;}
+.nav.active{opacity:1;color:#ffbf5a;}
 
-/* small top buttons (bronze / connect) */
-.top-buttons{
-  display:flex;
-  gap:12px;
-  margin-top:10px;
-}
-.top-btn{
-  background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));
-  padding:10px 14px;
-  border-radius:12px;
-  color:#ddd;
-  display:inline-flex;
-  align-items:center;
-  gap:10px;
-  font-weight:700;
-  border:1px solid rgba(255,255,255,0.03);
-}
-
-/* وسط الصفحة */
-.center{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;position:relative;padding-bottom:40px;}
-.coin-large-wrap{
-  width:100%;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  margin-top:8px;
-  pointer-events:none;
-}
-.coin{
-  width:360px;
-  height:360px;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  cursor:pointer;
-  transition:transform .08s ease;
-  user-select:none;
-  position:relative;
-  z-index:5;
-  pointer-events:auto;
-}
-.coin img{width:100%;height:100%;object-fit:contain;pointer-events:none;user-select:none;}
-
-/* energy + boost row positioned under coin */
-.energy-boost{
-  position:relative;
-  width:100%;
-  max-width:760px;
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
-  padding:22px 28px 0 28px;
-  gap:12px;
-}
-.box{background:rgba(255,255,255,.04);padding:12px 18px;border-radius:12px;font-weight:700;color:#fff;border:1px solid rgba(255,255,255,0.03);}
-.boost{ color:#ff9b2f; background:linear-gradient(90deg,#35213a,#40223f); }
-
-/* الشريط السفلي - مع خلفية مطابقة للصورة */
-.bottom{
-  position:fixed;
-  bottom:12px;
-  left:12px;
-  right:12px;
-  height:96px;
-  border-radius:18px;
-  padding:12px;
-  display:flex;
-  align-items:flex-end;
-  justify-content:center;
-  background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));
-  box-shadow:0 12px 40px rgba(0,0,0,0.6);
-  border:1px solid rgba(255,255,255,0.02);
-  z-index:4;
-}
-.nav-row{
-  width:96%;
-  max-width:820px;
-  display:flex;
-  gap:16px;
-  justify-content:space-between;
-  align-items:center;
-}
-.nav{
-  flex:1;
-  max-width:140px;
-  display:flex;
-  flex-direction:column;
-  align-items:center;
-  gap:8px;
-  padding:10px 8px;
-  border-radius:12px;
-  background:linear-gradient(180deg, rgba(255,255,255,0.01), rgba(255,255,255,0.01));
-  color:#cfc1e8;
-  font-weight:700;
-  font-size:13px;
-  border:1px solid rgba(255,255,255,0.03);
-  cursor:pointer;
-}
-.nav .icon{
-  width:44px;height:44px;border-radius:10px;display:flex;align-items:center;justify-content:center;background:linear-gradient(180deg,#2a2036,#32263f);color:#fff;font-size:18px;
-}
-.nav.active{
-  background:linear-gradient(180deg,#3a2743,#3f2b52);
-  color:#ffd88a;
-  border:1px solid rgba(255,187,90,0.12);
-  box-shadow:0 8px 18px rgba(0,0,0,0.5);
-}
-.nav.active .icon{background:linear-gradient(90deg,#4f2f5a,#5f3b6a);color:#ffd98a;}
-
-/* modal + badge + toast (kept as before) */
+/* ====== BOOST MODAL ====== */
 .modal-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.5);display:none;align-items:center;justify-content:center;z-index:200;}
 .modal{width:92%;max-width:420px;background:linear-gradient(180deg,#1f1826,#2a2237);border-radius:12px;padding:18px;color:#fff;box-shadow:0 8px 30px rgba(0,0,0,.6);}
+/* modal content */
+.modal h3{margin-bottom:8px;}
+.booster-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:12px 0;}
+.booster-btn{background:rgba(255,255,255,.04);padding:12px;border-radius:10px;cursor:pointer;border:1px solid rgba(255,255,255,.03);display:flex;flex-direction:column;gap:6px;}
+.small{font-size:13px;color:#bdb3d6;}
+.purchase-options{display:flex;flex-direction:column;gap:8px;margin-top:10px;}
+.option{display:flex;justify-content:space-between;align-items:center;padding:10px;border-radius:8px;background:rgba(255,255,255,.03);cursor:pointer;}
+.btn{background:#ffbf5a;color:#000;padding:8px 12px;border-radius:8px;border:none;cursor:pointer;font-weight:700;}
+.btn.ghost{background:transparent;border:1px solid rgba(255,255,255,.08);color:#fff;}
 
+/* small countdown badge (we keep CSS but won't show it for taping) */
 .effect-badge{position:absolute;top:8px;right:8px;background:rgba(0,0,0,.4);padding:6px 8px;border-radius:10px;font-size:12px;border:1px solid rgba(255,255,255,.06);display:none;}
-.plus{position:fixed;color:#ffffff;font-weight:700;font-size:22px;animation:floatUp .9s ease forwards;pointer-events:none;z-index:9999;}
-@keyframes floatUp{from{opacity:1;transform:translateY(0)} to{opacity:0;transform:translateY(-80px)}}
-.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:110px;background:#111;padding:10px 14px;border-radius:8px;color:#fff;box-shadow:0 6px 20px rgba(0,0,0,.6);display:none;z-index:300}
+/* toast */
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:80px;background:#111;padding:10px 14px;border-radius:8px;color:#fff;box-shadow:0 6px 20px rgba(0,0,0,.6);display:none;z-index:300;}
 
-/* responsive tweaks */
-@media (max-width:420px){
-  .coin{width:260px;height:260px}
-  .energy-boost{padding:12px}
-  .nav .icon{width:40px;height:40px}
+/* ====== HEADER ====== */
+.top{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  padding:16px;
 }
+
+.left-info{
+  display:flex;
+  flex-direction:column;
+  gap:6px;
+}
+
+.app-title{
+  font-weight:700;
+  font-size:15px;
+}
+
+.rank{
+  background:rgba(255,255,255,.08);
+  padding:6px 10px;
+  border-radius:10px;
+  font-size:13px;
+  width:fit-content;
+}
+
+.right-info{
+  display:flex;
+  gap:10px;
+  align-items:center;
+}
+
+/* ====== COIN ====== */
+.coin{
+  width:300px;
+  height:300px;
+  filter: drop-shadow(0 25px 40px rgba(0,0,0,.7));
+}
+
+.coin img{
+  width:100%;
+  height:100%;
+}
+
+/* ====== ENERGY & BOOST ====== */
+.energy-boost{
+  margin-top:22px;
+}
+
+.box{
+  background:rgba(255,255,255,.06);
+  padding:14px 18px;
+  border-radius:16px;
+  font-size:15px;
+}
+
+.boost{
+  background:linear-gradient(180deg,#ffb347,#ff8c00);
+  color:#000;
+  font-weight:800;
+}
+
+/* ====== BOTTOM NAV ====== */
+.bottom{
+  background:rgba(255,255,255,.05);
+  backdrop-filter:blur(8px);
+}
+
+.nav{
+  opacity:.6;
+}
+
+.nav.active{
+  opacity:1;
+  color:#ffbf5a;
+}
+
 </style>
 </head>
 
 <body>
 
-<!-- رأس مطابق للصورة -->
 <div class="top">
-  <div class="title-pill" aria-label="title">
-    <div style="display:flex;align-items:center;gap:12px;">
-      <div style="font-weight:800">NJR (Nova Joint Reserve)</div>
+  <div class="left-info">
+    <div class="app-title">NJR (Nova Joint Reserve)</div>
+    <div class="rank">🥉 Bronze</div>
+  </div>
+
+  <div class="right-info">
+    <div class="balance">
+      🪙 <span id="points">1525</span>
     </div>
-    <div class="pill-small" aria-hidden="true"><img src="coin-mini.png" alt="" style="width:16px;height:16px"> <span id="points">156.00</span></div>
+    <div class="wallet">🔗 Connect Wallet</div>
   </div>
 </div>
 
-<!-- أزرار صغيرة تحت العنوان -->
-<div style="padding:0 18px 8px">
-  <div class="top-buttons" role="toolbar" aria-label="top actions">
-    <div class="top-btn">🥉 Bronze <span style="margin-inline-start:8px">›</span></div>
-    <div class="top-btn">🔗 Connect Wallet <span style="margin-inline-start:8px">›</span></div>
-  </div>
+
+<div class="bottom">
+  <div class="nav active">💰<div>Earn</div></div>
+  <div class="nav">✅<div>Tasks</div></div>
+  <div class="nav">👤<div>Account</div></div>
+  <div class="nav">💳<div>Cashier</div></div>
 </div>
 
-<!-- الوسط مع عملة كبيرة -->
-<div class="center">
-  <div class="coin-large-wrap" aria-hidden="true"></div>
-
-  <div class="coin" id="coin" title="Tap">
-    <img src="logo.png" alt="NJR">
-    <div class="effect-badge" id="effectBadge" style="display:none"></div>
-  </div>
-
-  <div class="energy-boost" role="status" aria-live="polite">
-    <div class="box">⚡ <span id="energy">412</span> / <span id="maxEnergy">500</span></div>
-    <div class="box boost" id="openBoostBtn">🔥 Boost</div>
-  </div>
-</div>
-
-<!-- الشريط السفلي - Skills محذوف كما طلبت -->
-<div class="bottom" role="navigation" aria-label="main nav">
-  <div class="nav-row">
-    <div class="nav active" id="navEarn">
-      <div class="icon">●</div>
-      <div>Earn</div>
-    </div>
-
-    <div class="nav" id="navTasks">
-      <div class="icon">✅</div>
-      <div>Tasks</div>
-    </div>
-
-    <div class="nav" id="navAccount">
-      <div class="icon">👤</div>
-      <div>Account</div>
-    </div>
-
-    <div class="nav" id="navCashier">
-      <div class="icon">💳</div>
-      <div>Cashier</div>
-    </div>
-  </div>
-</div>
-
-<!-- MODAL المحتوى والـ IDs كما في كودك الحالي للحفاظ على التوافق -->
+<!-- MODAL -->
 <div class="modal-backdrop" id="modalBackdrop">
   <div class="modal" role="dialog" aria-modal="true">
     <h3>Boosts & Purchases</h3>
@@ -240,10 +161,12 @@ html,body{width:100%;height:100%;overflow:hidden;font-family:'Poppins',system-ui
       <div style="display:flex;gap:8px;">
         <div class="booster-btn" id="btnFullTank" role="button" aria-pressed="false" tabindex="0">
           <div style="font-weight:800">⚡ Full Tank</div>
+          <!-- show remaining uses like "3/3" -->
           <div class="small">Refills energy instantly (<span id="fullTankRemaining">3/3</span>)</div>
         </div>
         <div class="booster-btn" id="btnTaping" role="button" aria-pressed="false" tabindex="0">
           <div style="font-weight:800">🔥 Taping Guru</div>
+          <!-- show remaining uses like "3/3" -->
           <div class="small">Tap multiplier ×2 (<span id="tapingRemaining">3/3</span>)</div>
         </div>
       </div>
@@ -252,7 +175,7 @@ html,body{width:100%;height:100%;overflow:hidden;font-family:'Poppins',system-ui
         <div style="font-weight:700;margin-bottom:6px;">Boost ×2 (Buy duration)</div>
         <div class="purchase-options">
           <div class="option" data-price="0.5" data-duration="3600"><div>×2 — 1 hour</div><div>$0.5</div></div>
-          <div class="option" data-price="1" data-duration="14400"><div>×2 — 4 hours</div><div>$1</div></div>
+          <div class="option" data-price="1" data-duration="14400"><div>×2 ��� 4 hours</div><div>$1</div></div>
           <div class="option" data-price="4" data-duration="28800"><div>×2 — 8 hours</div><div>$4</div></div>
         </div>
       </div>
@@ -266,11 +189,10 @@ html,body{width:100%;height:100%;overflow:hidden;font-family:'Poppins',system-ui
 
 <div class="toast" id="toast"></div>
 
-<!-- السكربتات الأصلية (لم أغيّر المنطق - احتفظت بكل الـ IDs وendpoints) -->
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 <script>
 const tg = window.Telegram.WebApp;
-if(tg) tg.ready();
+tg.ready();
 
 const userId = tg.initDataUnsafe?.user?.id || "guest";
 let energy=0, maxEnergy=500, points=0, boost=1;
@@ -291,7 +213,7 @@ function showToast(msg, timeout=2000){
   t._to = setTimeout(()=> t.style.display = "none", timeout);
 }
 
-// animate number
+// animate number (same helper as قبل)
 function animateNumber(from,to,onStep,duration=400){
   if(from===to){ onStep(to); return Promise.resolve(); }
   return new Promise(resolve=>{
@@ -314,10 +236,13 @@ function updateUI(){
   document.getElementById("energy").innerText = Math.max(0, Math.floor(displayedEnergy));
   document.getElementById("maxEnergy").innerText = maxEnergy;
   document.getElementById("points").innerText = Math.floor(displayedPoints);
-  // we intentionally DO NOT show the taping countdown on the main screen (runs in background)
+
+  // Note: we intentionally DO NOT show the taping countdown/badge on the main screen.
+  // The effect runs in background; localMultiplier still applies.
+  // So we don't update effectBadge or coin lightning here.
 }
 
-// ====== state polling ======
+// ====== state polling (keeps server authoritative values & active effects) ======
 let pollInterval = 2000; let pollTimer=null;
 async function fetchStateOnce(){
   try{
@@ -329,11 +254,15 @@ async function fetchStateOnce(){
 async function pollState(){
   const data = await fetchStateOnce();
   if(!data || !data.success) return;
+  // update server authoritative
   const prevPoints = points;
   energy = data.energy; maxEnergy = data.maxEnergy; points = data.points;
+  // active effects list from server (array of {type,expires_at})
   activeEffects = (data.active_effects || []).map(e=> ({...e, expires_at: e.expires_at}));
+  // reduce pendingGain by confirmed increment
   const confirmedGain = Math.max(0, points - prevPoints);
   pendingGain = Math.max(0, pendingGain - confirmedGain);
+  // reconcile
   const targetDisplayedPoints = points + pendingGain;
   if(!initialLoaded){
     displayedEnergy = energy; displayedPoints = targetDisplayedPoints; initialLoaded=true; updateUI();
@@ -341,6 +270,7 @@ async function pollState(){
     animateNumber(displayedEnergy, energy, v=>{ displayedEnergy = v; updateUI(); }, 300);
     animateNumber(displayedPoints, targetDisplayedPoints, v=>{ displayedPoints = v; updateUI(); }, 300);
   }
+  // set local multiplier based on activeEffects (keeps server authoritative)
   const now = Date.now();
   const tapEffect = activeEffects.find(e=> e.type === 'taping' && e.expires_at > now);
   const x2Effect = activeEffects.find(e=> e.type === 'x2' && e.expires_at > now);
@@ -358,7 +288,7 @@ function startPolling(){
 }
 startPolling();
 
-// heartbeat
+// send heartbeat to mark daily/online activity
 async function sendHeartbeat() {
   if (!userId || String(userId) === 'guest') return;
   try {
@@ -367,14 +297,17 @@ async function sendHeartbeat() {
     console.warn('heartbeat failed', e);
   }
 }
+
+// call heartbeat once on load
 sendHeartbeat();
 
-// boost modal handling
+// ====== Boost modal UI handling ======
 const modalBackdrop = document.getElementById("modalBackdrop");
 const tapingRemainingEl = document.getElementById('tapingRemaining');
 const fullTankRemainingEl = document.getElementById('fullTankRemaining');
 
 document.getElementById("openBoostBtn").addEventListener("click", ()=> {
+  // show daily info (server-limited counts) and display remaining uses (3 - used)
   fetch(`/daily-info/${userId}`).then(r=>r.json()).then(d=>{
     if(d?.success){
       const tapUsed = d.taping_used || 0;
@@ -382,18 +315,18 @@ document.getElementById("openBoostBtn").addEventListener("click", ()=> {
       const tapRem = Math.max(0, 3 - tapUsed);
       const ftRem = Math.max(0, 3 - ftUsed);
       document.getElementById("dailyInfo").innerText = `Taping ${tapRem}/3 · FullTank ${ftRem}/3`;
-      if(tapingRemainingEl) tapingRemainingEl.innerText = `${tapRem}/3`;
-      if(fullTankRemainingEl) fullTankRemainingEl.innerText = `${ftRem}/3`;
+      tapingRemainingEl.innerText = `${tapRem}/3`;
+      fullTankRemainingEl.innerText = `${ftRem}/3`;
     } else {
       document.getElementById("dailyInfo").innerText = `Taping 3/3 · FullTank 3/3`;
-      if(tapingRemainingEl) tapingRemainingEl.innerText = `3/3`;
-      if(fullTankRemainingEl) fullTankRemainingEl.innerText = `3/3`;
+      tapingRemainingEl.innerText = `3/3`;
+      fullTankRemainingEl.innerText = `3/3`;
     }
     modalBackdrop.style.display = "flex";
   }).catch(()=>{
     modalBackdrop.style.display="flex";
-    if(tapingRemainingEl) tapingRemainingEl.innerText = `3/3`;
-    if(fullTankRemainingEl) fullTankRemainingEl.innerText = `3/3`;
+    tapingRemainingEl.innerText = `3/3`;
+    fullTankRemainingEl.innerText = `3/3`;
     document.getElementById("dailyInfo").innerText = `Taping 3/3 · FullTank 3/3`;
   });
 });
@@ -404,61 +337,74 @@ document.getElementById("btnFullTank").addEventListener("click", async ()=>{
   try {
     const res = await fetch("/boost/full", {method:"POST",headers:{"Content-Type":"application/json"}, body: JSON.stringify({user_id:userId})});
     const data = await res.json();
-    if(!data.success){ return; }
+    if(!data.success){ /* optionally show error */ return; }
+    // server returns new energy and fulltank_used
     energy = data.energy; points = data.points || points;
+    // reconcile display
     pendingGain = 0;
     animateNumber(displayedEnergy, energy, v=>{ displayedEnergy=v; updateUI(); }, 300);
     animateNumber(displayedPoints, points, v=>{ displayedPoints=v; updateUI(); }, 300);
+    // update remaining label immediately (so next open shows correct)
     if(typeof data.fulltank_used !== 'undefined'){
       const rem = Math.max(0, 3 - data.fulltank_used);
-      if(fullTankRemainingEl) fullTankRemainingEl.innerText = `${rem}/3`;
-      document.getElementById("dailyInfo").innerText = `Taping ${tapingRemainingEl?.innerText || '3/3'} · FullTank ${fullTankRemainingEl?.innerText || '3/3'}`;
+      fullTankRemainingEl.innerText = `${rem}/3`;
+      document.getElementById("dailyInfo").innerText = `Taping ${tapingRemainingEl.innerText} · FullTank ${fullTankRemainingEl.innerText}`;
     }
+    // Close modal immediately so user can continue; do NOT show activation toast or badge.
     modalBackdrop.style.display = "none";
   } catch (err) {
     console.warn("Full Tank activation error", err);
   }
 });
 
-// Taping Guru (10s ×2) - background-only countdown (no main UI badge shown)
+// Taping Guru (10s ×2)
 document.getElementById("btnTaping").addEventListener("click", async ()=>{
   try {
     const res = await fetch("/boost/taping", {method:"POST",headers:{"Content-Type":"application/json"}, body: JSON.stringify({user_id:userId})});
     const data = await res.json();
-    if(!data.success){ return; }
+    if(!data.success){ /* optionally show error */ return; }
+    // server returns effect info and taping_used
+    // We intentionally DO NOT display countdown on UI; effect runs in background.
+    // Apply multiplier locally immediately for responsiveness
     localMultiplier = 2;
+    // Update remaining label immediately
     if(typeof data.taping_used !== 'undefined'){
       const rem = Math.max(0, 3 - data.taping_used);
-      if(tapingRemainingEl) tapingRemainingEl.innerText = `${rem}/3`;
-      document.getElementById("dailyInfo").innerText = `Taping ${tapingRemainingEl?.innerText || '3/3'} · FullTank ${fullTankRemainingEl?.innerText || '3/3'}`;
+      tapingRemainingEl.innerText = `${rem}/3`;
+      document.getElementById("dailyInfo").innerText = `Taping ${tapingRemainingEl.innerText} · FullTank ${fullTankRemainingEl.innerText}`;
     }
+    // Close modal so user can immediately tap; do NOT show the 10s badge/toast
     modalBackdrop.style.display = "none";
+    // server's active_effects will be picked up by pollState to revert multiplier after expiry
   } catch (err) {
     console.warn("Taping activation error", err);
   }
 });
 
-// purchase options (unchanged)
+// Purchase options
 document.querySelectorAll('.purchase-options .option').forEach(opt=>{
   opt.addEventListener('click', async ()=> {
     const price = parseFloat(opt.dataset.price);
     const duration = parseInt(opt.dataset.duration,10);
+    // create purchase on server, server will create invoice via Telegram / provider and return payment_url or purchase_id
     showToast("Creating invoice...");
     const r = await fetch("/purchase", {method:"POST",headers:{"Content-Type":"application/json"}, body: JSON.stringify({ user_id: userId, price, duration })});
     const j = await r.json();
     if(!j.success){ showToast(j.message || "Invoice creation error"); return; }
-    if(j.payment_url){ window.open(j.payment_url, "_blank"); }
+    if(j.payment_url){
+      window.open(j.payment_url, "_blank");
+    }
     showToast("Waiting for payment confirmation...");
     const purchaseId = j.purchase_id;
     const start = Date.now();
-    const timeout = 2*60*1000;
+    const timeout = 2*60*1000; // 2 minutes
     const poll = setInterval(async ()=>{
       const sres = await fetch(`/purchase/status/${purchaseId}`);
       const sj = await sres.json();
       if(sj.success && sj.status === 'paid'){
         clearInterval(poll);
         showToast("Payment confirmed. ×2 activated instantly");
-        await pollState();
+        await pollState(); // force refresh
         modalBackdrop.style.display = "none";
       } else if(Date.now() - start > timeout){
         clearInterval(poll);
@@ -472,10 +418,12 @@ document.querySelectorAll('.purchase-options .option').forEach(opt=>{
 const coin = document.getElementById("coin");
 coin.addEventListener("click", (e)=>{
   if(Math.floor(displayedEnergy) <= 0) return;
+  // visual + float: place the +N at the actual click position
   const p = document.createElement("div");
   p.className = "plus";
   const value = boost * localMultiplier;
   p.innerText = `+${value}`;
+  // position at click coords and center the element there
   p.style.left = `${e.clientX}px`;
   p.style.top = `${e.clientY}px`;
   p.style.transform = 'translate(-50%,-50%)';
@@ -484,25 +432,31 @@ coin.addEventListener("click", (e)=>{
   setTimeout(()=>p.remove(),900);
   if(navigator.vibrate) navigator.vibrate(20);
 
+  // optimistic UI
   displayedEnergy = Math.max(0, displayedEnergy - 1);
   pendingGain += value;
   displayedPoints = points + pendingGain;
   updateUI();
 
+  // send tap to server (server will check active effects and reply gain & new energy)
   fetch("/tap", {method:"POST",headers:{"Content-Type":"application/json"},body: JSON.stringify({user_id:userId})})
     .then(r=>r.json())
     .then(data=>{
       if(!data.success){
+        // rollback by fetching state
         pollState();
         return;
       }
+      // server confirms: update authoritative
       energy = data.energy;
       points += data.gain;
       pendingGain = Math.max(0, pendingGain - data.gain);
+      // reconcile displays
       animateNumber(displayedEnergy, energy, v=>{ displayedEnergy=v; updateUI(); }, 300);
       animateNumber(displayedPoints, points + pendingGain, v=>{ displayedPoints=v; updateUI(); }, 300);
     }).catch(err=>{
       console.warn("tap error",err);
+      // on error refresh
       pollState();
     });
 });
@@ -511,9 +465,9 @@ coin.addEventListener("click", (e)=>{
 updateUI();
 </script>
 
-<!-- ACCOUNT PANEL and Policy content preserved (styles/ids unchanged) -->
+<!-- APPEND: Account panel (paste this before the closing </body>) -->
 <style>
-/* Account panel styles (kept same as original to avoid breaking logic) */
+/* Account panel styles (scoped) */
 .account-panel-backdrop{
   position:fixed;inset:0;display:none;align-items:flex-start;justify-content:center;
   padding-top:40px;z-index:400;background:linear-gradient(180deg,rgba(6,6,7,.45),rgba(6,6,7,.7));
@@ -525,10 +479,29 @@ updateUI();
   border:1px solid rgba(255,255,255,.03);
   font-family: 'Poppins', system-ui;
 }
-/* ... باقي الأنماط كما في الملف الأصلي (محتفظة) ... */
+.account-top-tabs{display:flex;gap:8px;background:rgba(255,255,255,.02);padding:8px;border-radius:12px;align-items:center;justify-content:center;margin-bottom:12px;}
+.account-tab-btn{flex:1;padding:8px 12px;border-radius:10px;text-align:center;color:#cfc1e8;font-weight:600;cursor:pointer;border:1px solid transparent;}
+.account-tab-btn.active{background:linear-gradient(180deg,#3a2f48,#442f53);color:#fff;border:1px solid rgba(255,255,255,.04);box-shadow:0 6px 18px rgba(0,0,0,.45);}
+.account-section{padding:8px 6px;min-height:220px;}
+.account-stats{display:flex;flex-direction:column;gap:18px;align-items:center;padding-top:6px;}
+.stat-row{text-align:center;}
+.stat-title{color:#bfb1d8;font-size:13px;margin-bottom:6px;}
+.stat-value{font-weight:800;font-size:22px;letter-spacing:2px;color:#fff;text-shadow:0 6px 18px rgba(0,0,0,.6);}
+.invite-card{background:linear-gradient(180deg,rgba(255,255,255,.02),rgba(255,255,255,.01));padding:12px;border-radius:12px;border:1px solid rgba(255,255,255,.03);display:flex;gap:12px;align-items:center;justify-content:space-between;}
+.invite-left{flex:1;color:#e6dff6;}
+.invite-label{font-weight:700;margin-bottom:6px;color:#fff;}
+.invite-link{font-size:13px;color:#cfc1e8;word-break:break-all;opacity:.95;}
+.copy-btn{background:#6f4bd8;color:#fff;padding:8px 12px;border-radius:10px;border:none;cursor:pointer;font-weight:700;}
+.ref-list{margin-top:12px;padding-top:6px;color:#d9cfe9;}
+.settings-list{display:flex;flex-direction:column;gap:10px;}
+.settings-item{background:rgba(255,255,255,.02);padding:12px;border-radius:10px;display:flex;justify-content:space-between;align-items:center;cursor:pointer;border:1px solid rgba(255,255,255,.02);}
+/* small tweaks */
+.close-panel{position:absolute;right:18px;top:12px;color:#cfc1e8;cursor:pointer;font-weight:700;}
+.no-ref{padding:24px 6px;text-align:center;color:#d6cfe6;}
+.account-small{font-size:13px;color:#bfb1d8;margin-bottom:6px;}
+@media (min-width:720px){ .account-panel{margin-top:48px;} }
 </style>
 
-<!-- Account panel HTML (kept) -->
 <div class="account-panel-backdrop" id="accountPanelBackdrop" aria-hidden="true">
   <div class="account-panel" role="dialog" aria-modal="true" aria-labelledby="accountTitle">
     <div style="position:relative;">
@@ -543,6 +516,7 @@ updateUI();
     </div>
 
     <div class="account-section" id="accountSection">
+      <!-- STATS (default active) -->
       <div class="account-content" data-content="stats" style="display:block;">
         <div class="account-stats">
           <div class="stat-row">
@@ -568,6 +542,7 @@ updateUI();
         </div>
       </div>
 
+      <!-- REF -->
       <div class="account-content" data-content="ref" style="display:none;">
         <div class="account-small">My ref bonus: <span id="myRefBonus">0</span></div>
         <div class="account-small">My ref: <span id="myRefCount">0</span></div>
@@ -589,6 +564,7 @@ updateUI();
         </div>
       </div>
 
+      <!-- SETTINGS -->
       <div class="account-content" data-content="settings" style="display:none;">
         <div class="settings-list">
           <div class="settings-item" role="button" id="privacyBtn">Privacy Policy <span>›</span></div>
@@ -599,26 +575,31 @@ updateUI();
   </div>
 </div>
 
-<!-- Script for Account panel interactions (kept intact) -->
 <script>
+/* Account panel behavior (uses existing userId variable from your script) */
 (function(){
   const backdrop = document.getElementById('accountPanelBackdrop');
   const closeBtn = document.getElementById('closeAccountPanel');
   const tabs = document.querySelectorAll('.account-tab-btn');
   const contents = document.querySelectorAll('.account-content');
 
+  // refs in DOM
   const myRefCountEl = document.getElementById('myRefCount');
   const myRefBonusEl = document.getElementById('myRefBonus');
   const refListContainer = document.getElementById('refListContainer');
   const noRefText = document.getElementById('noRefText');
 
+  // open when pressing the Account nav (third .nav)
   const accountNav = document.querySelector('.bottom .nav:nth-child(3)');
   if(accountNav){
     accountNav.addEventListener('click', ()=> openAccountPanel());
   }
 
   async function openAccountPanel(){
+    // send heartbeat to mark user active (daily/online)
     try { if (typeof userId !== 'undefined' && String(userId) !== 'guest') await fetch(`/heartbeat/${userId}`, { method: 'POST' }); } catch(e){}
+
+    // fill invite link using userId (existing var in page)
     const inviteEl = document.getElementById('inviteLink');
     try{
       const botUsername = 'NJROfficialBot';
@@ -630,6 +611,7 @@ updateUI();
       inviteEl.innerText = 'https://t.me/YOUR-BOT?start=r_XXXXX';
     }
 
+    // fetch global stats and show them
     try {
       const gres = await fetch('/global-stats');
       const g = await gres.json();
@@ -640,6 +622,7 @@ updateUI();
         document.getElementById('statDaily').innerText = (g.daily_users || 0).toLocaleString();
         document.getElementById('statOnline').innerText = (g.online_players || 0).toLocaleString();
       } else {
+        // fallback to previous hardcoded values
         document.getElementById('statShare').innerText = '9710702162713';
         document.getElementById('statTouches').innerText = '106 056 491 953';
         document.getElementById('statPlayers').innerText = '74 839 124';
@@ -655,13 +638,17 @@ updateUI();
       document.getElementById('statOnline').innerText = '318';
     }
 
+    // fetch referral info from server and populate UI
     try {
       if (typeof userId !== 'undefined' && userId && String(userId) !== 'guest') {
         const res = await fetch(`/ref/${userId}`);
         const j = await res.json();
         if (j && j.success) {
           myRefCountEl.innerText = j.referrals_count || 0;
+          // use stored referral bonus total from server (not computed client-side)
           myRefBonusEl.innerText = j.ref_bonus_total || 0;
+
+          // populate list
           if (Array.isArray(j.referrals) && j.referrals.length > 0) {
             refListContainer.innerHTML = ''; refListContainer.style.display = 'block'; noRefText.style.display = 'none';
             j.referrals.forEach(r => {
@@ -688,12 +675,14 @@ updateUI();
             noRefText.style.display = 'block';
           }
         } else {
+          // failed to get referral info
           myRefCountEl.innerText = '0';
           myRefBonusEl.innerText = '0';
           refListContainer.style.display = 'none';
           noRefText.style.display = 'block';
         }
       } else {
+        // guest - cannot fetch
         myRefCountEl.innerText = '0';
         myRefBonusEl.innerText = '0';
         refListContainer.style.display = 'none';
@@ -719,6 +708,7 @@ updateUI();
   closeBtn.addEventListener('click', closePanel);
   backdrop.addEventListener('click', (e)=>{ if(e.target === backdrop) closePanel(); });
 
+  // tab switching
   tabs.forEach(t=>{
     t.addEventListener('click', ()=>{
       tabs.forEach(x=>x.classList.remove('active'));
@@ -731,6 +721,7 @@ updateUI();
     });
   });
 
+  // copy invite
   const copyBtn = document.getElementById('copyInviteBtn');
   copyBtn.addEventListener('click', async ()=>{
     const link = document.getElementById('inviteLink').getAttribute('data-link') || document.getElementById('inviteLink').innerText;
@@ -744,10 +735,96 @@ updateUI();
     }
   });
 
-  document.getElementById('privacyBtn').addEventListener('click', ()=>{ if(typeof showToast === 'function') showToast('Open Privacy Policy'); document.dispatchEvent(new Event('openPrivacy')); });
-  document.getElementById('termsBtn').addEventListener('click', ()=>{ if(typeof showToast === 'function') showToast('Open Terms of Use'); document.dispatchEvent(new Event('openTerms')); });
+  // settings items (open external pages or show toast)
+  document.getElementById('privacyBtn').addEventListener('click', ()=>{ 
+    if(typeof showToast === 'function') showToast('Open Privacy Policy');
+    const evt = new Event('openPrivacy');
+    document.dispatchEvent(evt);
+  });
+  document.getElementById('termsBtn').addEventListener('click', ()=>{ 
+    if(typeof showToast === 'function') showToast('Open Terms of Use');
+    const evt = new Event('openTerms');
+    document.dispatchEvent(evt);
+  });
 })();
 </script>
+<!-- END APPEND -->
+
+<!-- APPEND: Privacy & Terms viewer (paste this before the closing </body>) -->
+<style>
+/* Policy modal (scoped) */
+.policy-backdrop{
+  position:fixed;inset:0;display:none;align-items:center;justify-content:center;
+  background:rgba(0,0,0,.6);z-index:700;padding:20px;backdrop-filter:blur(6px);
+}
+.policy-modal{
+  width:92%;max-width:760px;max-height:86vh;overflow:auto;background:linear-gradient(180deg,#1f1826,#2a2237);
+  border-radius:12px;padding:18px 18px 22px;color:#fff;box-shadow:0 12px 40px rgba(0,0,0,.6);
+  border:1px solid rgba(255,255,255,.03);font-family:'Poppins',system-ui;
+}
+.policy-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;}
+.policy-title{font-weight:800;font-size:18px;color:#fff;}
+.policy-close{background:transparent;border:1px solid rgba(255,255,255,.04);color:#cfc1e8;padding:6px 10px;border-radius:8px;cursor:pointer;}
+.policy-content{font-size:14px;line-height:1.6;color:#e6dff6;}
+.policy-section{margin-top:10px;margin-bottom:10px;}
+.policy-small{font-size:13px;color:#bfb1d8;margin-top:8px;}
+.policy-content p{margin:8px 0;}
+</style>
+
+<div class="policy-backdrop" id="policyBackdrop" aria-hidden="true">
+  <div class="policy-modal" role="dialog" aria-modal="true" aria-labelledby="policyTitle">
+    <div class="policy-header">
+      <div id="policyTitle" class="policy-title">Policy</div>
+      <button class="policy-close" id="closePolicyBtn">إغلاق</button>
+    </div>
+    <div class="policy-content" id="policyContent" tabindex="0"></div>
+  </div>
+</div>
+
+<script>
+// Policy viewer behavior (unchanged)
+(function(){
+  const backdrop = document.getElementById('policyBackdrop');
+  const contentEl = document.getElementById('policyContent');
+  const titleEl = document.getElementById('policyTitle');
+  const closeBtn = document.getElementById('closePolicyBtn');
+
+  const PRIVACY_HTML = `...`; // trimmed for brevity in this block
+
+  const TERMS_HTML = `...`; // trimmed for brevity in this block
+
+  function openPolicy(title, html){
+    titleEl.innerText = title;
+    contentEl.innerHTML = html;
+    backdrop.style.display = 'flex';
+    backdrop.setAttribute('aria-hidden','false');
+    contentEl.focus();
+  }
+  function closePolicy(){
+    backdrop.style.display = 'none';
+    backdrop.setAttribute('aria-hidden','true');
+    contentEl.innerHTML = '';
+  }
+
+  const privacyBtn = document.getElementById('privacyBtn');
+  const termsBtn = document.getElementById('termsBtn');
+
+  if(privacyBtn){
+    privacyBtn.addEventListener('click', ()=> { openPolicy('Privacy Policy — NJR', PRIVACY_HTML); });
+  }
+  if(termsBtn){
+    termsBtn.addEventListener('click', ()=> { openPolicy('Terms of Use — NJR', TERMS_HTML); });
+  }
+
+  closeBtn.addEventListener('click', closePolicy);
+  backdrop.addEventListener('click', (e)=>{ if(e.target === backdrop) closePolicy(); });
+  document.addEventListener('keydown', (e)=>{ if(e.key === 'Escape' && backdrop.style.display === 'flex') closePolicy(); });
+  document.addEventListener('openPrivacy', ()=> openPolicy('Privacy Policy — NJR', PRIVACY_HTML));
+  document.addEventListener('openTerms', ()=> openPolicy('Terms of Use — NJR', TERMS_HTML));
+})();
+</script>
+<!-- END APPEND -->
 
 </body>
 </html>
+
