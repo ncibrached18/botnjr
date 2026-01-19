@@ -70,6 +70,18 @@ html,body{width:100%;height:100%;overflow:hidden;font-family:'Poppins',system-ui
 .purchase-close{display:flex;justify-content:flex-end;margin-top:12px;}
 .btn.ghost{background:transparent;border:1px solid rgba(255,255,255,.08);color:#fff;}
 
+/* ====== COIN DETAIL MODAL (for upgrades using in-game balance) - matches images 5-8 ====== */
+.coin-detail-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.6);display:none;align-items:center;justify-content:center;z-index:650;padding:20px;}
+.coin-detail-modal{width:92%;max-width:420px;background:linear-gradient(180deg,#1f1826,#2a2237);border-radius:12px;padding:22px;color:#fff;box-shadow:0 8px 40px rgba(0,0,0,.6);text-align:center;position:relative;}
+.coin-detail-modal .close-x{position:absolute;right:12px;top:12px;font-weight:700;cursor:pointer;}
+.coin-detail-modal .big-icon{width:86px;height:86px;border-radius:18px;margin:10px auto 6px;display:flex;align-items:center;justify-content:center;background:linear-gradient(180deg,#31304a,#2b2340);}
+.coin-detail-modal h2{font-size:28px;margin:8px 0;}
+.coin-detail-modal p{color:#cfc1e8;font-size:14px;margin:8px 0 12px;line-height:1.5;}
+.coin-detail-price{display:flex;align-items:center;gap:8px;justify-content:center;font-weight:800;margin:12px 0;font-size:18px;}
+.coin-detail-price .coin-icon{font-size:18px;color:#ffd66b;}
+.coin-detail-note{color:#cfc1e8;font-size:12px;margin-bottom:10px;}
+.get-btn{background:#6b46d6;color:#fff;padding:12px 18px;border-radius:10px;border:none;cursor:pointer;font-weight:800;font-size:15px;}
+
 /* small toast */
 .toast{position:fixed;left:50%;transform:translateX(-50%);bottom:80px;background:#111;padding:10px 14px;border-radius:8px;color:#fff;box-shadow:0 6px 20px rgba(0,0,0,.6);display:none;z-index:900;}
 @media (min-width:720px){ .modal{padding:22px;} .detail-modal{padding:28px;} }
@@ -136,45 +148,45 @@ html,body{width:100%;height:100%;overflow:hidden;font-family:'Poppins',system-ui
           <div class="chev">›</div>
         </div>
 
-        <div class="booster-row" data-item="multitap" tabindex="0" role="button">
+        <div class="booster-row" id="listMultitap" data-item="multitap" tabindex="0" role="button">
           <div class="booster-left">
             <div class="booster-icon">✋</div>
             <div class="booster-info">
               <div class="booster-name">Multitap</div>
-              <div class="booster-price">200 <span style="opacity:.7">• 1 level</span></div>
+              <div class="booster-price"><span class="price-coins" data-item="multitap">200</span> <span style="opacity:.8;color:#ffd66b">●</span></div>
             </div>
           </div>
           <div class="chev">›</div>
         </div>
 
-        <div class="booster-row" data-item="energylimit" tabindex="0" role="button">
+        <div class="booster-row" id="listEnergyLimit" data-item="energylimit" tabindex="0" role="button">
           <div class="booster-left">
             <div class="booster-icon">🔋</div>
             <div class="booster-info">
               <div class="booster-name">Energy Limit</div>
-              <div class="booster-price">200 <span style="opacity:.7">• 1 level</span></div>
+              <div class="booster-price"><span class="price-coins" data-item="energylimit">200</span> <span style="opacity:.8;color:#ffd66b">●</span></div>
             </div>
           </div>
           <div class="chev">›</div>
         </div>
 
-        <div class="booster-row" data-item="recharge" tabindex="0" role="button">
+        <div class="booster-row" id="listRecharge" data-item="recharge" tabindex="0" role="button">
           <div class="booster-left">
             <div class="booster-icon">⚡</div>
             <div class="booster-info">
               <div class="booster-name">Recharging Speed</div>
-              <div class="booster-price">2 000 <span style="opacity:.7">• 1 level</span></div>
+              <div class="booster-price"><span class="price-coins" data-item="recharge">2 000</span> <span style="opacity:.8;color:#ffd66b">●</span></div>
             </div>
           </div>
           <div class="chev">›</div>
         </div>
 
-        <div class="booster-row" data-item="tapbot" tabindex="0" role="button">
+        <div class="booster-row" id="listTapBot" data-item="tapbot" tabindex="0" role="button">
           <div class="booster-left">
             <div class="booster-icon">🤖</div>
             <div class="booster-info">
               <div class="booster-name">Tap Bot</div>
-              <div class="booster-price">200 000</div>
+              <div class="booster-price"><span class="price-coins" data-item="tapbot">200 000</span> <span style="opacity:.8;color:#ffd66b">●</span></div>
             </div>
           </div>
           <div class="chev">›</div>
@@ -222,6 +234,21 @@ html,body{width:100%;height:100%;overflow:hidden;font-family:'Poppins',system-ui
   </div>
 </div>
 
+<!-- COIN DETAIL MODAL (for upgrades with in-game currency) -->
+<div class="coin-detail-backdrop" id="coinDetailBackdrop" aria-hidden="true">
+  <div class="coin-detail-modal" role="dialog" aria-modal="true" aria-labelledby="coinDetailTitle">
+    <div class="close-x" id="closeCoinDetail">✕</div>
+    <div class="big-icon" id="coinDetailIcon">🔧</div>
+    <h2 id="coinDetailTitle">Title</h2>
+    <p id="coinDetailDesc">Description</p>
+
+    <div class="coin-detail-price"><span class="coin-icon">🪙</span> <span id="coinDetailCost">200</span> &nbsp; | &nbsp; <span id="coinDetailLevel">1 level</span></div>
+    <div class="coin-detail-note" id="coinDetailNote">insufficient funds</div>
+
+    <button class="get-btn" id="getCoinBtn">Get it!</button>
+  </div>
+</div>
+
 <div class="toast" id="toast"></div>
 
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
@@ -230,7 +257,7 @@ const tg = window.Telegram.WebApp;
 tg.ready();
 
 const userId = tg.initDataUnsafe?.user?.id || "guest";
-let energy=0, maxEnergy=500, points=0, boost=1;
+let energy=0, maxEnergy=500, points=1525, boost=1; // points used as in-game currency (coins)
 let displayedEnergy=0, displayedPoints=0;
 let pendingGain=0;
 let initialLoaded=false;
@@ -238,6 +265,59 @@ let initialLoaded=false;
 // activeEffects from server: {type:"taping"|"x2", expires_at: timestamp (ms)}
 let activeEffects = [];
 let localMultiplier = 1; // used for client immediate tap multiplier
+
+// Booster levels (will try to fetch from server; fallback to defaults)
+let userBoostLevels = {
+  multitap: 1,
+  energylimit: 1,
+  recharge: 1,
+  tapbot: 0
+};
+
+// Booster definitions and costs per level (from your specification)
+const boostersData = {
+  multitap: {
+    id: 'multitap',
+    name: 'Multitap',
+    icon: '✋',
+    desc: 'Increase amount of TAP you can earn per one tap. +1 per tap for each level.',
+    costs: [200,600,1500,4000,10000,25000,60000,150000,350000,800000],
+    effectPerLevel: 1,
+    maxLevel: 10
+  },
+  energylimit: {
+    id: 'energylimit',
+    name: 'Energy limit',
+    icon: '🔋',
+    desc: 'Increase the limit of energy storage.',
+    energyByLevel: [100,150,200,300,400,600,800,1000,1300,1600],
+    costs: [200,500,1200,3000,8000,20000,50000,120000,300000,700000],
+    maxLevel: 10
+  },
+  recharge: {
+    id: 'recharge',
+    name: 'Recharging speed',
+    icon: '⚡',
+    desc: 'Increase speed of recharge.',
+    speeds: [1,1.3,1.6,2,2.5,3,3.5,4,4.5,5],
+    costs: [2000,5000,12000,30000,70000,150000,350000,800000,1800000,4000000],
+    maxLevel: 10
+  },
+  tapbot: {
+    id: 'tapbot',
+    name: 'Tap Bot',
+    icon: '🤖',
+    desc: 'Tap bot will tap when your energy is full. Max bot work duration is 12 hours.',
+    levels: [
+      { clicks_per_sec:1, duration_hrs:2, cost:200000 },
+      { clicks_per_sec:2, duration_hrs:4, cost:500000 },
+      { clicks_per_sec:4, duration_hrs:6, cost:1500000 },
+      { clicks_per_sec:7, duration_hrs:9, cost:4000000 },
+      { clicks_per_sec:12, duration_hrs:12, cost:10000000 }
+    ],
+    maxLevel: 5
+  }
+};
 
 // helper: toast
 function showToast(msg, timeout=2000){
@@ -270,7 +350,45 @@ function animateNumber(from,to,onStep,duration=400){
 function updateUI(){
   document.getElementById("energy").innerText = Math.max(0, Math.floor(displayedEnergy));
   document.getElementById("maxEnergy").innerText = maxEnergy;
-  document.getElementById("points").innerText = Math.floor(displayedPoints);
+  document.getElementById("points").innerText = Math.floor(points);
+  // update list prices (in case levels/costs changed)
+  document.querySelectorAll('.price-coins').forEach(el=>{
+    const key = el.dataset.item;
+    if(!key) return;
+    const lvl = userBoostLevels[key] || 0;
+    const nextCost = getNextCost(key);
+    el.innerText = nextCost !== null ? nextCost.toLocaleString() : '—';
+  });
+}
+
+// get next cost or null if maxed
+function getNextCost(item){
+  const b = boostersData[item];
+  const cur = userBoostLevels[item] || 0;
+  if(!b) return null;
+  if(item === 'tapbot'){
+    if(cur >= b.maxLevel) return null;
+    return b.levels[cur].cost; // cur is current level; level index for next is cur (0-based)
+  } else {
+    const costs = b.costs;
+    if(cur >= costs.length) return null;
+    return costs[cur];
+  }
+}
+
+// Try to fetch user boost levels from server (optional endpoint). Fall back to defaults.
+async function fetchUserBoostLevels(){
+  try{
+    const r = await fetch(`/boost/levels/${userId}`);
+    const j = await r.json();
+    if(j && j.success && j.levels){
+      userBoostLevels = {...userBoostLevels, ...j.levels};
+    }
+  }catch(e){
+    // ignore, use defaults
+    console.warn('fetchUserBoostLevels failed', e);
+  }
+  updateUI();
 }
 
 // ====== state polling (keeps server authoritative values & active effects) ======
@@ -286,7 +404,7 @@ async function pollState(){
   const data = await fetchStateOnce();
   if(!data || !data.success) return;
   const prevPoints = points;
-  energy = data.energy; maxEnergy = data.maxEnergy; points = data.points;
+  energy = data.energy; maxEnergy = data.maxEnergy; points = data.points ?? points;
   activeEffects = (data.active_effects || []).map(e=> ({...e, expires_at: e.expires_at}));
   const confirmedGain = Math.max(0, points - prevPoints);
   pendingGain = Math.max(0, pendingGain - confirmedGain);
@@ -325,6 +443,9 @@ async function sendHeartbeat() {
 }
 sendHeartbeat();
 
+// initialize user boost levels
+fetchUserBoostLevels().catch(()=>{});
+
 // ====== BOOST modal behavior & preserving original top-buttons functionality ======
 const modalBackdrop = document.getElementById("modalBackdrop");
 const tapingRemainingEl = document.getElementById('tapingRemaining');
@@ -362,7 +483,6 @@ document.getElementById("closeModal").addEventListener("click", ()=> {
 
 // Make the top daily cards keep original functionality
 document.getElementById('cardFullTank').addEventListener('click', async ()=>{
-  // reuse original full tank activation flow
   try {
     const res = await fetch("/boost/full", {method:"POST",headers:{"Content-Type":"application/json"}, body: JSON.stringify({user_id:userId})});
     const data = await res.json();
@@ -406,7 +526,7 @@ document.getElementById('cardTaping').addEventListener('click', async ()=>{
 document.getElementById('btnFullTank')?.addEventListener('click', ()=> document.getElementById('cardFullTank').click());
 document.getElementById('btnTaping')?.addEventListener('click', ()=> document.getElementById('cardTaping').click());
 
-// ====== List item -> open detail modal (Boost X2) ======
+// ====== Boost X2 detail/purchase (unchanged) ======
 const listBoostX2 = document.getElementById('listBoostX2');
 const detailBackdrop = document.getElementById('detailBackdrop');
 const detailPriceEl = document.getElementById('detailPrice');
@@ -414,42 +534,29 @@ const detailNoteEl = document.getElementById('detailNote');
 const paymentBtn = document.getElementById('paymentBtn');
 
 listBoostX2.addEventListener('click', ()=> {
-  // show detail modal similar to image 2
-  // Show the "price" as the gem-count by default (we display number) but with dollar icon per user's request on this modal
-  // The backend may store gem price 400; we show the number here. The Payment flow will use dollar-based purchases.
   const gemAmount = listBoostX2.querySelector('.price-amount')?.innerText || '400';
   detailPriceEl.innerText = gemAmount;
   detailNoteEl.innerText = 'insufficient funds';
   detailBackdrop.style.display = 'flex';
   detailBackdrop.setAttribute('aria-hidden','false');
 });
-
-// close detail
 document.getElementById('closeDetail').addEventListener('click', ()=> {
   detailBackdrop.style.display = 'none';
   detailBackdrop.setAttribute('aria-hidden','true');
 });
 detailBackdrop.addEventListener('click', (e)=> { if(e.target === detailBackdrop){ detailBackdrop.style.display='none'; detailBackdrop.setAttribute('aria-hidden','true'); } });
 
-// When clicking Payment open purchase options (user requested yellow button named Payment and dollar instead of gems)
 const purchaseBackdrop = document.getElementById('purchaseBackdrop');
-const purchaseOptionsContainer = document.getElementById('purchaseOptionsContainer');
-
 paymentBtn.addEventListener('click', ()=> {
-  // close detail and open purchase options
   detailBackdrop.style.display = 'none';
   detailBackdrop.setAttribute('aria-hidden','true');
   purchaseBackdrop.style.display = 'flex';
   purchaseBackdrop.setAttribute('aria-hidden','false');
 });
-
-// Close purchase
 document.getElementById('closePurchase').addEventListener('click', ()=> {
   purchaseBackdrop.style.display = 'none';
   purchaseBackdrop.setAttribute('aria-hidden','true');
 });
-
-// Purchase options click -> create invoice etc. (keeps your existing purchase logic, but in dollars)
 document.querySelectorAll('.purchase-option').forEach(opt=>{
   opt.addEventListener('click', async ()=>{
     const price = parseFloat(opt.dataset.price);
@@ -459,14 +566,11 @@ document.querySelectorAll('.purchase-option').forEach(opt=>{
       const r = await fetch("/purchase", {method:"POST",headers:{"Content-Type":"application/json"}, body: JSON.stringify({ user_id: userId, price, duration, currency: 'USD', item: 'boost_x2' })});
       const j = await r.json();
       if(!j.success){ showToast(j.message || "Invoice creation error"); return; }
-      if(j.payment_url){
-        // open payment in new tab; Telegram WebApp may have its own payment method, but we fallback to opening URL
-        window.open(j.payment_url, "_blank");
-      }
+      if(j.payment_url) window.open(j.payment_url, "_blank");
       showToast("Waiting for payment confirmation...");
       const purchaseId = j.purchase_id;
       const start = Date.now();
-      const timeout = 2*60*1000; // 2 minutes
+      const timeout = 2*60*1000;
       const poll = setInterval(async ()=>{
         try {
           const sres = await fetch(`/purchase/status/${purchaseId}`);
@@ -474,7 +578,7 @@ document.querySelectorAll('.purchase-option').forEach(opt=>{
           if(sj.success && sj.status === 'paid'){
             clearInterval(poll);
             showToast("Payment confirmed. ×2 activated");
-            await pollState(); // force refresh from server
+            await pollState();
             purchaseBackdrop.style.display = 'none';
             purchaseBackdrop.setAttribute('aria-hidden','true');
           } else if(Date.now() - start > timeout){
@@ -492,7 +596,114 @@ document.querySelectorAll('.purchase-option').forEach(opt=>{
   });
 });
 
-/* ====== TAP logic (unchanged) ====== */
+// ====== COIN-UPGRADE modals for Multitap / Energy Limit / Recharge / TapBot ======
+const coinDetailBackdrop = document.getElementById('coinDetailBackdrop');
+const closeCoinDetail = document.getElementById('closeCoinDetail');
+const coinDetailTitle = document.getElementById('coinDetailTitle');
+const coinDetailDesc = document.getElementById('coinDetailDesc');
+const coinDetailIcon = document.getElementById('coinDetailIcon');
+const coinDetailCost = document.getElementById('coinDetailCost');
+const coinDetailLevel = document.getElementById('coinDetailLevel');
+const coinDetailNote = document.getElementById('coinDetailNote');
+const getCoinBtn = document.getElementById('getCoinBtn');
+
+let currentOpenedItem = null;
+
+// function to open coin modal for an item
+function openCoinModal(itemKey){
+  const item = boostersData[itemKey];
+  if(!item) return;
+  currentOpenedItem = itemKey;
+  const curLevel = userBoostLevels[itemKey] || 0;
+  coinDetailIcon.innerText = item.icon || '🔧';
+  coinDetailTitle.innerText = item.name;
+  coinDetailDesc.innerText = item.desc || '';
+  const nextCost = getNextCost(itemKey);
+  coinDetailCost.innerText = nextCost !== null ? (typeof nextCost === 'number' ? nextCost.toLocaleString() : nextCost) : '—';
+  coinDetailLevel.innerText = `${Math.max(0,curLevel)} level`;
+  coinDetailNote.innerText = points < (nextCost || Infinity) ? 'insufficient funds' : 'You have enough coins';
+  coinDetailBackdrop.style.display = 'flex';
+  coinDetailBackdrop.setAttribute('aria-hidden','false');
+}
+
+// close handlers
+closeCoinDetail.addEventListener('click', ()=> {
+  coinDetailBackdrop.style.display = 'none';
+  coinDetailBackdrop.setAttribute('aria-hidden','true');
+});
+coinDetailBackdrop.addEventListener('click', (e)=>{ if(e.target === coinDetailBackdrop){ coinDetailBackdrop.style.display='none'; coinDetailBackdrop.setAttribute('aria-hidden','true'); } });
+
+// wire list rows
+document.getElementById('listMultitap').addEventListener('click', ()=> openCoinModal('multitap'));
+document.getElementById('listEnergyLimit').addEventListener('click', ()=> openCoinModal('energylimit'));
+document.getElementById('listRecharge').addEventListener('click', ()=> openCoinModal('recharge'));
+document.getElementById('listTapBot').addEventListener('click', ()=> openCoinModal('tapbot'));
+
+// purchase flow for Get it! (using in-game balance)
+getCoinBtn.addEventListener('click', async ()=>{
+  if(!currentOpenedItem) return;
+  const itemKey = currentOpenedItem;
+  const cost = getNextCost(itemKey);
+  if(cost === null){ showToast('Already max level'); return; }
+  // check balance locally first
+  if(points < cost){
+    showToast('رصيد غير كافٍ'); // insufficient balance (Arabic)
+    coinDetailNote.innerText = 'insufficient funds';
+    return;
+  }
+
+  // Optimistic UI: deduct immediately
+  points -= cost;
+  updateUI();
+  showToast('Processing purchase...');
+
+  // send upgrade request to server; keep payload minimal and let server validate
+  try {
+    const res = await fetch('/boost/upgrade', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ user_id: userId, item: itemKey })
+    });
+    const j = await res.json();
+    if(!j.success){
+      // rollback points if server rejected
+      if(typeof j.current_points !== 'undefined'){
+        points = j.current_points;
+      } else {
+        // approximate rollback by adding back cost
+        points += cost;
+      }
+      updateUI();
+      showToast(j.message || 'Purchase failed');
+      coinDetailNote.innerText = j.message || 'purchase failed';
+      return;
+    }
+    // success: server may return new level & points
+    if(typeof j.new_level !== 'undefined') userBoostLevels[itemKey] = j.new_level;
+    else userBoostLevels[itemKey] = (userBoostLevels[itemKey] || 0) + 1;
+    if(typeof j.points !== 'undefined') points = j.points;
+    coinDetailNote.innerText = 'Purchase successful';
+    showToast('تم الشراء بنجاح');
+    updateUI();
+
+    // update modal to show new level and next cost
+    const cur = userBoostLevels[itemKey] || 0;
+    coinDetailLevel.innerText = `${cur} level`;
+    const next = getNextCost(itemKey);
+    coinDetailCost.innerText = next !== null ? (next).toLocaleString() : '—';
+    // close modal after short delay
+    setTimeout(()=>{ coinDetailBackdrop.style.display='none'; coinDetailBackdrop.setAttribute('aria-hidden','true'); }, 900);
+  } catch(err){
+    console.error('upgrade error', err);
+    // rollback
+    points += cost;
+    updateUI();
+    showToast('خطأ في الاتصال، حاول لاحقًا');
+    coinDetailNote.innerText = 'network error';
+  }
+});
+
+// ====== TAP logic (unchanged) ======
 const coin = document.getElementById("coin");
 coin.addEventListener("click", (e)=>{
   if(Math.floor(displayedEnergy) <= 0) return;
