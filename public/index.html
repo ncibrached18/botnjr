@@ -355,7 +355,6 @@ function updateUI(){
   document.querySelectorAll('.price-coins').forEach(el=>{
     const key = el.dataset.item;
     if(!key) return;
-    const lvl = userBoostLevels[key] || 0;
     const nextCost = getNextCost(key);
     el.innerText = nextCost !== null ? nextCost.toLocaleString() : '—';
   });
@@ -383,6 +382,8 @@ async function fetchUserBoostLevels(){
     const j = await r.json();
     if(j && j.success && j.levels){
       userBoostLevels = {...userBoostLevels, ...j.levels};
+      // ensure numeric
+      Object.keys(userBoostLevels).forEach(k=> userBoostLevels[k] = Number(userBoostLevels[k] || 0));
     }
   }catch(e){
     // ignore, use defaults
@@ -404,7 +405,7 @@ async function pollState(){
   const data = await fetchStateOnce();
   if(!data || !data.success) return;
   const prevPoints = points;
-  energy = data.energy; maxEnergy = data.maxEnergy; points = data.points ?? points;
+  energy = data.energy; maxEnergy = data.maxEnergy; points = (typeof data.points === 'number') ? data.points : points;
   activeEffects = (data.active_effects || []).map(e=> ({...e, expires_at: e.expires_at}));
   const confirmedGain = Math.max(0, points - prevPoints);
   pendingGain = Math.max(0, pendingGain - confirmedGain);
@@ -487,7 +488,7 @@ document.getElementById('cardFullTank').addEventListener('click', async ()=>{
     const res = await fetch("/boost/full", {method:"POST",headers:{"Content-Type":"application/json"}, body: JSON.stringify({user_id:userId})});
     const data = await res.json();
     if(!data.success){ showToast(data.message || 'Activation failed'); return; }
-    energy = data.energy; points = data.points || points;
+    energy = data.energy; points = (typeof data.points === 'number') ? data.points : points;
     pendingGain = 0;
     animateNumber(displayedEnergy, energy, v=>{ displayedEnergy=v; updateUI(); }, 300);
     animateNumber(displayedPoints, points, v=>{ displayedPoints=v; updateUI(); }, 300);
@@ -639,50 +640,53 @@ document.getElementById('listEnergyLimit').addEventListener('click', ()=> openCo
 document.getElementById('listRecharge').addEventListener('click', ()=> openCoinModal('recharge'));
 document.getElementById('listTapBot').addEventListener('click', ()=> openCoinModal('tapbot'));
 
-// purchase flow for Get it! (using in-game balance)
+// PURCHASE FLOW (server-authoritative): use /boost/upgrade endpoint and let server deduct balance.
+// Important: we DO NOT deduct locally before server confirms. We show loading and wait for server response.
 getCoinBtn.addEventListener('click', async ()=>{
   if(!currentOpenedItem) return;
   const itemKey = currentOpenedItem;
   const cost = getNextCost(itemKey);
-  if(cost === null){ showToast('Already max level'); return; }
-  // check balance locally first
+  if(cost === null){ showToast('مستوى أقصى reached'); return; }
+  // check balance locally first for quick feedback
   if(points < cost){
     showToast('رصيد غير كافٍ'); // insufficient balance (Arabic)
     coinDetailNote.innerText = 'insufficient funds';
     return;
   }
 
-  // Optimistic UI: deduct immediately
-  points -= cost;
-  updateUI();
-  showToast('Processing purchase...');
+  // disable button while processing
+  getCoinBtn.disabled = true;
+  const prevText = getCoinBtn.innerText;
+  getCoinBtn.innerText = 'Processing...';
 
-  // send upgrade request to server; keep payload minimal and let server validate
   try {
+    // Send request to server to perform the upgrade and deduct balance
+    // Server MUST validate the user's balance, deduct cost, increment level, and return updated points and new level.
     const res = await fetch('/boost/upgrade', {
       method: 'POST',
       headers: {'Content-Type':'application/json'},
       body: JSON.stringify({ user_id: userId, item: itemKey })
     });
     const j = await res.json();
+
     if(!j.success){
-      // rollback points if server rejected
-      if(typeof j.current_points !== 'undefined'){
-        points = j.current_points;
-      } else {
-        // approximate rollback by adding back cost
-        points += cost;
+      // Server rejected purchase - show message and refresh points if server returned authoritative points
+      if(typeof j.points !== 'undefined') {
+        points = j.points;
+        updateUI();
       }
-      updateUI();
-      showToast(j.message || 'Purchase failed');
       coinDetailNote.innerText = j.message || 'purchase failed';
+      showToast(j.message || 'Purchase failed');
       return;
     }
-    // success: server may return new level & points
-    if(typeof j.new_level !== 'undefined') userBoostLevels[itemKey] = j.new_level;
+
+    // Success - server should return new level and updated points (authoritative)
+    if(typeof j.new_level !== 'undefined') userBoostLevels[itemKey] = Number(j.new_level);
     else userBoostLevels[itemKey] = (userBoostLevels[itemKey] || 0) + 1;
-    if(typeof j.points !== 'undefined') points = j.points;
-    coinDetailNote.innerText = 'Purchase successful';
+
+    if(typeof j.points !== 'undefined') points = Number(j.points);
+
+    coinDetailNote.innerText = 'تم الشراء بنجاح';
     showToast('تم الشراء بنجاح');
     updateUI();
 
@@ -691,15 +695,19 @@ getCoinBtn.addEventListener('click', async ()=>{
     coinDetailLevel.innerText = `${cur} level`;
     const next = getNextCost(itemKey);
     coinDetailCost.innerText = next !== null ? (next).toLocaleString() : '—';
-    // close modal after short delay
+
+    // close modal after a short delay
     setTimeout(()=>{ coinDetailBackdrop.style.display='none'; coinDetailBackdrop.setAttribute('aria-hidden','true'); }, 900);
+
   } catch(err){
     console.error('upgrade error', err);
-    // rollback
-    points += cost;
-    updateUI();
     showToast('خطأ في الاتصال، حاول لاحقًا');
     coinDetailNote.innerText = 'network error';
+    // Optionally poll server to refresh authoritative points
+    try { await pollState(); } catch(e){}
+  } finally {
+    getCoinBtn.disabled = false;
+    getCoinBtn.innerText = prevText;
   }
 });
 
