@@ -224,15 +224,17 @@ app.get("/state/:userId", async (req, res) => {
     const active_effects = Array.isArray(user.active_effects) ? (user.active_effects.filter(e => (e.expires_at || 0) > Date.now())) : [];
 
     res.json({
-      success: true,
-      energy,
-      maxEnergy: user.max_energy,
-      points: user.points,
-      referral_bonus_total: user.referral_bonus_total || 0,
-      active_effects,
-      multitap: user.multitap || 1,
-      levels: user.levels || {}
+     success: true,
+     energy,
+     maxEnergy: user.max_energy,
+     points: user.points,
+     referral_bonus_total: user.referral_bonus_total || 0,
+     active_effects,
+     multitap: user.multitap || 1,
+     boost: user.boost || user.multitap || 1, // ⭐ السطر المهم
+     levels: user.levels || {}
     });
+
   } catch (err) {
     console.error("state error", err);
     res.json({ success: false });
@@ -516,4 +518,5 @@ ensureMetaRow().catch(err => console.warn("ensureMetaRow failed", err));
 app.listen(PORT, () => {
   console.log("Server running on", PORT);
 });
+
 
