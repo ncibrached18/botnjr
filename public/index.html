@@ -29,7 +29,7 @@ html,body{width:100%;height:100%;overflow:hidden;font-family:'Poppins',system-ui
 .nav.active{opacity:1;color:#ffbf5a;}
 
 /* ====== MAIN BOOST WINDOW (mimic image 3) ====== */
-.modal-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.5);display:none;align-items:flex-start;justify-content:center;z-index:200;padding-top:34px;}
+.modal-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.5);Display:none;align-items:flex-start;justify-content:center;z-index:200;padding-top:34px;}
 .modal{width:92%;max-width:640px;background:linear-gradient(180deg,#241731,#37243a);border-radius:12px;padding:18px;color:#fff;box-shadow:0 8px 40px rgba(0,0,0,.6);border:1px solid rgba(255,255,255,.03);}
 /* daily boosters row (two cards) */
 .daily-row{display:flex;gap:12px;margin-bottom:18px;}
@@ -63,14 +63,8 @@ html,body{width:100%;height:100%;overflow:hidden;font-family:'Poppins',system-ui
 /* purchase options modal (reuse styles but separate backdrop for z-index) */
 .purchase-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.65);display:none;align-items:center;justify-content:center;z-index:700;padding:20px;}
 .purchase-modal{width:92%;max-width:420px;background:linear-gradient(180deg,#241731,#37243a);border-radius:12px;padding:16px;color:#fff;box-shadow:0 8px 40px rgba(0,0,0,.6);}
-.purchase-modal h3{margin-bottom:8px;}
-.purchase-options{display:flex;flex-direction:column;gap:10px;margin-top:8px;}
-.purchase-option{display:flex;justify-content:space-between;align-items:center;padding:12px;border-radius:8px;background:rgba(255,255,255,.02);cursor:pointer;border:1px solid rgba(255,255,255,.02);}
-.purchase-option .price{font-weight:800;color:#fff;}
-.purchase-close{display:flex;justify-content:flex-end;margin-top:12px;}
-.btn.ghost{background:transparent;border:1px solid rgba(255,255,255,.08);color:#fff;}
 
-/* ====== COIN DETAIL MODAL (for upgrades using in-game balance) - matches images 5-8 ====== */
+/* COIN DETAIL MODAL (for upgrades using in-game balance) - matches images 5-8 */
 .coin-detail-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.6);display:none;align-items:center;justify-content:center;z-index:650;padding:20px;}
 .coin-detail-modal{width:92%;max-width:420px;background:linear-gradient(180deg,#1f1826,#2a2237);border-radius:12px;padding:22px;color:#fff;box-shadow:0 8px 40px rgba(0,0,0,.6);text-align:center;position:relative;}
 .coin-detail-modal .close-x{position:absolute;right:12px;top:12px;font-weight:700;cursor:pointer;}
@@ -257,7 +251,10 @@ const tg = window.Telegram.WebApp;
 tg.ready();
 
 const userId = tg.initDataUnsafe?.user?.id || "guest";
-let energy=0, maxEnergy=500, points=1525, boost=1; // points used as in-game currency (coins)
+
+// State variables
+let energy=0, maxEnergy=500, points=1525, boost=1;
+let multitap = 1; // عدد الضربات لكل نقرة
 let displayedEnergy=0, displayedPoints=0;
 let pendingGain=0;
 let initialLoaded=false;
@@ -406,6 +403,15 @@ async function pollState(){
   if(!data || !data.success) return;
   const prevPoints = points;
   energy = data.energy; maxEnergy = data.maxEnergy; points = (typeof data.points === 'number') ? data.points : points;
+
+  // update multitap & boost from server (authoritative)
+  try {
+    multitap = Number(data.multitap || (data.levels && data.levels.multitap) || multitap);
+  } catch(e) { /* keep previous */ }
+  try {
+    boost = Number(data.boost || multitap || boost);
+  } catch(e) { /* keep previous */ }
+
   activeEffects = (data.active_effects || []).map(e=> ({...e, expires_at: e.expires_at}));
   const confirmedGain = Math.max(0, points - prevPoints);
   pendingGain = Math.max(0, pendingGain - confirmedGain);
@@ -690,11 +696,15 @@ getCoinBtn.addEventListener('click', async ()=>{
     showToast('تم الشراء بنجاح');
     updateUI();
 
-    // update modal to show new level and next cost
-    const cur = userBoostLevels[itemKey] || 0;
-    coinDetailLevel.innerText = `${cur} level`;
-    const next = getNextCost(itemKey);
-    coinDetailCost.innerText = next !== null ? (next).toLocaleString() : '—';
+    // NEW: update client-side multitap & boost when multitap was upgraded
+    if(itemKey === 'multitap'){
+      // prefer values returned by server; fallback to userBoostLevels
+      multitap = Number(j.multitap || userBoostLevels[itemKey] || multitap);
+      boost = Number(j.boost || multitap || boost);
+      coinDetailLevel.innerText = `${userBoostLevels[itemKey]} level`;
+      const next = getNextCost(itemKey);
+      coinDetailCost.innerText = next !== null ? (next).toLocaleString() : '—';
+    }
 
     // close modal after a short delay
     setTimeout(()=>{ coinDetailBackdrop.style.display='none'; coinDetailBackdrop.setAttribute('aria-hidden','true'); }, 900);
@@ -711,13 +721,15 @@ getCoinBtn.addEventListener('click', async ()=>{
   }
 });
 
-// ====== TAP logic (unchanged) ======
+// ====== TAP logic (updated to use multitap & boost) ======
 const coin = document.getElementById("coin");
 coin.addEventListener("click", (e)=>{
-  if(Math.floor(displayedEnergy) <= 0) return;
+  // require enough displayed energy for full multitap
+  if(Math.floor(displayedEnergy) < multitap) return;
   const p = document.createElement("div");
   p.className = "plus";
-  const value = boost * localMultiplier;
+  // client-side immediate gain estimate (matches server formula: boost * multitap * effect)
+  const value = boost * multitap * localMultiplier;
   p.innerText = `+${value}`;
   p.style.left = `${e.clientX}px`;
   p.style.top = `${e.clientY}px`;
@@ -727,7 +739,8 @@ coin.addEventListener("click", (e)=>{
   setTimeout(()=>p.remove(),900);
   if(navigator.vibrate) navigator.vibrate(20);
 
-  displayedEnergy = Math.max(0, displayedEnergy - 1);
+  // deduct displayed energy by multitap count (server will be authoritative later)
+  displayedEnergy = Math.max(0, displayedEnergy - multitap);
   pendingGain += value;
   displayedPoints = points + pendingGain;
   updateUI();
