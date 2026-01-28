@@ -200,7 +200,7 @@ bot.onText(/\/start(?:\s(.+))?/, async (msg, match) => {
         {
           text: "▶️ START TAPPING",
           web_app: {
-            url: process.env.WEB_APP_URL || "https://your-web-app-url.example"
+            url: process.env.WEB_APP_URL || "https://botnjr.onrender.com"
           }
         }
       ]]
@@ -516,3 +516,4 @@ ensureMetaRow().catch(err => console.warn("ensureMetaRow failed", err));
 app.listen(PORT, () => {
   console.log("Server running on", PORT);
 });
+
