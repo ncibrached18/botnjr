@@ -268,7 +268,6 @@ app.post("/pay/confirm", async (req, res) => {
       .from("payments")
       .select("*")
       .eq("comment", comment)
-      .eq("status", "pending")
       .limit(1);
 
     if (error || !data || data.length === 0) {
@@ -624,3 +623,4 @@ ensureMetaRow().catch(err => console.warn("ensureMetaRow failed", err));
 app.listen(PORT, () => {
   console.log("Server running on", PORT);
 });
+
