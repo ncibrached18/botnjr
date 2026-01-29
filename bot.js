@@ -621,50 +621,6 @@ app.get("/global-stats", async (req, res) => {
 // ----------------- Server start -----------------
 const PORT = process.env.PORT || 3000;
 ensureMetaRow().catch(err => console.warn("ensureMetaRow failed", err));
-const crypto = require("crypto");
-
-const TON_WALLET = process.env.TON_WALLET;
-const BOOST_PRICE_TON = 0.5; // السعر
-const BOOST_DURATION_MS = 60 * 60 * 1000; // ساعة
-
-app.post("/pay/create", async (req, res) => {
-  const { user_id } = req.body;
-  if (!user_id) return res.json({ success: false });
-
-  const comment = `njr_${user_id}_${Date.now()}`;
-
-  const { data, error } = await supabase
-    .from("purchases")
-    .insert({
-      user_id,
-      item: "boost_x2_1h",
-      amount: BOOST_PRICE_TON,
-      currency: "TON",
-      status: "pending",
-      provider_payload: { comment }
-    })
-    .select()
-    .single();
-
-  if (error) return res.json({ success: false });
-
-  const payUrl =
-    `https://app.tonkeeper.com/transfer/${TON_WALLET}` +
-    `?amount=${BOOST_PRICE_TON * 1e9}` +
-    `&text=${encodeURIComponent(comment)}`;
-
-  res.json({
-    success: true,
-    payment_url: payUrl,
-    purchase_id: data.id
-  });
-});
-
-
 app.listen(PORT, () => {
   console.log("Server running on", PORT);
 });
-
-
-
-
