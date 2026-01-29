@@ -573,8 +573,8 @@ document.querySelectorAll('.purchase-option').forEach(opt => {
     try {
       // نحدد نوع البوست حسب المدة
       let item = "boost_x2_1h";
-      if (duration === 14400) item = "boost_x2_4h";
-      if (duration === 28800) item = "boost_x2_8h";
+      if (duration === 7200) item = "boost_x2_2h";
+      if (duration === 25200) item = "boost_x2_7h";
 
       const r = await fetch("https://botnjr.onrender.com/pay/create", {
         method: "POST",
@@ -598,7 +598,7 @@ document.querySelectorAll('.purchase-option').forEach(opt => {
         `?amount=${j.amount * 1e9}` +
         `&text=${encodeURIComponent(j.comment)}`;
 
-      window.open(tonUrl, "_blank");
+      location.href = tonUrl;
       showToast("Please complete payment in your wallet");
 
       // إخفاء نافذة الشراء
@@ -1106,4 +1106,5 @@ updateUI();
 
 </body>
 </html>
+
 
