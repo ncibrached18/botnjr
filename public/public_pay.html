@@ -10,6 +10,7 @@
     .btn{display:inline-block;padding:12px 18px;border-radius:10px;background:#6b46d6;color:#fff;font-weight:700;border:none;cursor:pointer}
     .btn.ton{background:#2d9cdb}
     .info{margin:14px 0;color:#cfc1e8}
+    .toast{position:fixed;left:50%;transform:translateX(-50%);bottom:24px;background:#111;padding:10px 14px;border-radius:8px;color:#fff;display:none}
   </style>
 </head>
 <body>
@@ -18,33 +19,41 @@
     <div class="info" id="desc">Please wait</div>
     <div id="price" style="font-weight:800;font-size:20px;margin:12px 0"></div>
 
-    <button id="connectBtn" class="btn ton">Connect Wallet / Open Wallet</button>
+    <button id="connectBtn" class="btn ton">Open Wallet</button>
     <div style="height:8px"></div>
-    <button id="fallbackBtn" class="btn" style="margin-top:10px;background:#ffbf5a;color:#000;display:none">Open Wallet App</button>
+    <button id="cancelBtn" class="btn" style="margin-top:10px;background:#444;color:#fff">Cancel</button>
 
     <div style="height:10px"></div>
     <div id="msg" style="color:#a9a0c6;margin-top:12px;font-size:13px"></div>
   </div>
 
+  <div id="toast" class="toast"></div>
+
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
 <script>
 (async function(){
-  // قراءة params item & user
+  const toast = (t, ms=1800) => {
+    const el = document.getElementById('toast');
+    el.innerText = t; el.style.display = 'block';
+    clearTimeout(el._to);
+    el._to = setTimeout(()=> el.style.display='none', ms);
+  };
+
   const params = new URLSearchParams(location.search);
   const item = params.get('item') || 'boost_x2_1h';
   const user = params.get('user') || '';
 
-  // نطلب من السيرفر إنشاء الفاتورة
+  // create invoice on server
   async function createInvoice(){
     try{
-      const r = await fetch('/pay/create', {
-        method: 'POST',
-        headers: {'Content-Type':'application/json'},
-        body: JSON.stringify({ user_id: user, item: item })
+      const res = await fetch('/pay/create', {
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ user_id: user, item })
       });
-      const j = await r.json();
-      return j;
-    }catch(e){
-      return { success: false, message: 'Network error' };
+      return await res.json();
+    } catch(e){
+      return { success:false, message: 'Network error' };
     }
   }
 
@@ -54,7 +63,7 @@
   const priceEl = document.getElementById('price');
   const msgEl = document.getElementById('msg');
   const connectBtn = document.getElementById('connectBtn');
-  const fallbackBtn = document.getElementById('fallbackBtn');
+  const cancelBtn = document.getElementById('cancelBtn');
 
   if(!res.success){
     titleEl.innerText = 'Payment error';
@@ -65,42 +74,76 @@
   }
 
   const address = res.address;
-  const amount = Number(res.amount); // TON amount (decimal)
-  const comment = res.comment;
-
+  const amount = Number(res.amount);
+  const comment = res.comment; // important: server returned the comment
   titleEl.innerText = 'Buy Boost ×2';
   descEl.innerText = 'Pay with your TON wallet';
   priceEl.innerText = `Price: ${amount} TON`;
 
-  // طريقة 1: محاولة فتح TON Connect modal (إذا تعلمت لاحقًا نضيف TonConnect SDK هنا)
-  // طريقة 2 (fallback السهل): فتح deeplink مباشر لفتح تطبيق TonKeeper أو أي محفظة تدعم الرابط
-  // نستخدم الرابط التالي (ينقل إلى موقع/تطبيق Tonkeeper إن متاح):
-  const tonkeeperLink = `https://app.tonkeeper.com/transfer/${encodeURIComponent(address)}?amount=${Math.round(amount * 1e9)}&text=${encodeURIComponent(comment)}`;
+  // ton:// deep link (some webviews may block it) and https fallback
   const tonDeeplink = `ton://transfer/${encodeURIComponent(address)}?amount=${Math.round(amount * 1e9)}&text=${encodeURIComponent(comment)}`;
+  const tonKeeperUrl = `https://app.tonkeeper.com/transfer/${encodeURIComponent(address)}?amount=${Math.round(amount * 1e9)}&text=${encodeURIComponent(comment)}`;
 
-  // زر Connect يحاول فتح deeplink (سيظهر خيار فتح في التطبيقات على جهاز المستخدم)
-  connectBtn.addEventListener('click', ()=> {
-    // inside WebApp (Telegram) opening ton:// may or may not be allowed; app.tonkeeper link is safe fallback
-    // نفتح أولًا ton:// ثم نفتح رابط https كنسخة احتياطية بعد تأخير بسيط
+  // helper to open external link properly inside Telegram WebApp if possible
+  function openWalletLink(url){
+    // if in Telegram WebApp -> use openLink
     try {
-      // محاولة فتح deeplink
-      window.location.href = tonDeeplink;
-      // بعد 700ms نفتح رابط https (fallback) — بعض الأجهزة تتطلب https
-      setTimeout(()=> {
-        window.location.href = tonkeeperLink;
-      }, 800);
-    } catch (e) {
-      window.location.href = tonkeeperLink;
+      if(window.Telegram && window.Telegram.WebApp && typeof window.Telegram.WebApp.openLink === 'function'){
+        window.Telegram.WebApp.openLink(url);
+        return;
+      }
+    } catch(e){}
+    // fallback to setting location (may work outside webview)
+    window.location.href = url;
+  }
+
+  connectBtn.addEventListener('click', ()=>{
+    // first try native deeplink (ton://) then fallback to https if deeplink doesn't open
+    // best-effort: open deeplink then open https after short timeout
+    try {
+      openWalletLink(tonDeeplink);
+      // try fallback after 900ms
+      setTimeout(()=> openWalletLink(tonKeeperUrl), 900);
+      toast('Please complete payment in your wallet', 2500);
+      // start polling payment status
+      startPollingPayment(comment);
+    } catch(e){
+      openWalletLink(tonKeeperUrl);
+      startPollingPayment(comment);
     }
-    msgEl.innerText = 'Please complete the payment in your wallet. After payment, press Back and confirm in bot if needed.';
   });
 
-  // خيار بديل (يظهر دائماً للمستخدمين خارج Telegram)
-  fallbackBtn.style.display = 'block';
-  fallbackBtn.addEventListener('click', ()=> {
-    window.location.href = tonkeeperLink;
+  cancelBtn.addEventListener('click', ()=>{
+    // if inside Telegram WebApp, close it; else just navigate back
+    try { if(window.Telegram && window.Telegram.WebApp) window.Telegram.WebApp.close(); else history.back(); } catch(e){ history.back(); }
   });
 
+  // polling to check payment status (calls server endpoint)
+  let pollTimer = null;
+  async function checkPaymentStatus(comment){
+    try{
+      const r = await fetch(`/pay/status/${encodeURIComponent(comment)}`);
+      const j = await r.json();
+      return j;
+    }catch(e){ return { success:false }; }
+  }
+
+  function startPollingPayment(comment){
+    if(pollTimer) return;
+    pollTimer = setInterval(async ()=>{
+      const s = await checkPaymentStatus(comment);
+      // server should return { found: true, status: 'paid' } when paid
+      if(s && s.found && s.status === 'paid'){
+        clearInterval(pollTimer);
+        pollTimer = null;
+        toast('Payment received — activating boost', 2000);
+        // optional: notify server to process /pay/confirm (if not processed already)
+        try { await fetch('/pay/confirm', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ comment }) }); } catch(e){}
+        // close WebApp after short delay
+        setTimeout(()=>{ try{ if(window.Telegram && window.Telegram.WebApp) window.Telegram.WebApp.close(); else window.close(); } catch(e){ window.close(); } }, 1200);
+      }
+    }, 2500);
+  }
 })();
 </script>
 </body>
