@@ -217,6 +217,42 @@ bot.onText(/\/start(?:\s(.+))?/, async (msg, match) => {
   });
 });
 
+// ----------------- نضيف زر في البوت داخل كود البوت (مثلاً بعد /start أو أمر /buy): -----------------
+
+bot.onText(/\/buy/, async (msg) => {
+  const chatId = msg.chat.id;
+  const userId = msg.from.id;
+
+  // نطلب إنشاء الدفع من السيرفر نفسه
+  const res = await fetch("https://botnjr.onrender.com/pay/create", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      user_id: String(userId),
+      item: "boost_x2_1h"
+    })
+  });
+
+  const data = await res.json();
+  if (!data.success) {
+    return bot.sendMessage(chatId, "❌ فشل إنشاء الدفع");
+  }
+
+  const tonUrl =
+    `https://app.tonkeeper.com/transfer/${process.env.TON_WALLET_ADDRESS}` +
+    `?amount=${data.amount * 1e9}` +
+    `&text=${encodeURIComponent(data.comment)}`;
+
+  bot.sendMessage(chatId, "💎 اشترِ Boost x2 لمدة ساعة:", {
+    reply_markup: {
+      inline_keyboard: [[
+        { text: "💳 ادفع عبر Tonkeeper", url: tonUrl }
+      ]]
+    }
+  });
+});
+
+
 // ----------------- Create payment -----------------
 app.post("/pay/create", async (req, res) => {
   try {
@@ -613,5 +649,6 @@ ensureMetaRow().catch(err => console.warn("ensureMetaRow failed", err));
 app.listen(PORT, () => {
   console.log("Server running on", PORT);
 });
+
 
 
