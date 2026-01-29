@@ -131,7 +131,8 @@ async function createDefaultUser(userId, now) {
     console.error("createDefaultUser error", error);
   } else {
     // increment meta players
-    await supabase.rpc('inc_meta', { field: 'total_players', delta: 1 }).catch(e => console.warn('inc_meta err', e));
+    const { error: incMetaErr } = await supabase.rpc('inc_meta', { field: 'total_players', delta: 1 });
+    if (incMetaErr) console.warn('inc_meta err', incMetaErr);
   }
   return;
 }
@@ -173,8 +174,10 @@ bot.onText(/\/start(?:\s(.+))?/, async (msg, match) => {
 
             await addReferralRecord(referrerId, userId, Date.now());
             // inc meta counters via RPC
-            await supabase.rpc('inc_meta', { field: 'total_share_balance', delta: FIRST_TIME_GIFT + REFERRER_BONUS }).catch(()=>{});
-            await supabase.rpc('inc_meta', { field: 'total_referrals', delta: 1 }).catch(()=>{});
+            const { error: incShareErr } = await supabase.rpc('inc_meta', { field: 'total_share_balance', delta: FIRST_TIME_GIFT + REFERRER_BONUS });
+            if (incShareErr) console.warn('inc_meta err', incShareErr);
+            const { error: incRefErr } = await supabase.rpc('inc_meta', { field: 'total_referrals', delta: 1 });
+            if (incRefErr) console.warn('inc_meta err', incRefErr);
 
             try { await bot.sendMessage(msg.chat.id, `🎉 Welcome! You registered via a referral link and received ${FIRST_TIME_GIFT} bonus points.`); } catch(e){}
             try { await bot.sendMessage(Number(referrerId), `✅ You have a new referral! ${REFERRER_BONUS} points have been added to your account.`); } catch(e){}
@@ -201,8 +204,10 @@ bot.onText(/\/start(?:\s(.+))?/, async (msg, match) => {
             }).eq("id", String(userId)).catch(e=>console.error('user update err', e));
 
             await addReferralRecord(referrerId, userId, Date.now());
-            await supabase.rpc('inc_meta', { field: 'total_share_balance', delta: FIRST_TIME_GIFT + REFERRER_BONUS }).catch(()=>{});
-            await supabase.rpc('inc_meta', { field: 'total_referrals', delta: 1 }).catch(()=>{});
+            const { error: incShareErr2 } = await supabase.rpc('inc_meta', { field: 'total_share_balance', delta: FIRST_TIME_GIFT + REFERRER_BONUS });
+            if (incShareErr2) console.warn('inc_meta err', incShareErr2);
+            const { error: incRefErr2 } = await supabase.rpc('inc_meta', { field: 'total_referrals', delta: 1 });
+            if (incRefErr2) console.warn('inc_meta err', incRefErr2);
 
             try { await bot.sendMessage(msg.chat.id, `🎉 Welcome! You registered via a referral link and received ${FIRST_TIME_GIFT} bonus points.`); } catch(e){}
             try { await bot.sendMessage(Number(referrerId), `✅ You have a new referral! ${REFERRER_BONUS} points have been added to your account.`); } catch(e){}
@@ -500,7 +505,8 @@ app.post("/boost/taping", async (req, res) => {
     const { error: ue } = await supabase.from("users").update(updates).eq("id", String(user_id));
     if (ue) { console.error("boost/taping update error", ue); return res.json({ success: false }); }
 
-    await supabase.rpc('inc_meta', { field: 'total_share_balance', delta: 0 }).catch(()=>{});
+    const { error: incShareErr3 } = await supabase.rpc('inc_meta', { field: 'total_share_balance', delta: 0 });
+    if (incShareErr3) console.warn('inc_meta err', incShareErr3);
 
     return res.json({ success: true, active_effects, taping_used: new_taping_used });
   } catch (err) {
@@ -564,7 +570,8 @@ app.post("/heartbeat/:userId", async (req, res) => {
     const updates = { last_active: now };
     if (lastDailyDate !== todayDate) {
       updates.last_daily_active = now;
-      await supabase.rpc('inc_meta', { field: 'daily_users', delta: 1 }).catch(()=>{});
+      const { error: incDailyErr } = await supabase.rpc('inc_meta', { field: 'daily_users', delta: 1 });
+      if (incDailyErr) console.warn('inc_meta err', incDailyErr);
     }
 
     await supabase.from("users").update(updates).eq("id", userId);
@@ -659,8 +666,3 @@ ensureMetaRow().catch(err => console.warn("ensureMetaRow failed", err));
 app.listen(PORT, () => {
   console.log("Server running on", PORT);
 });
-
-
-
-
-
