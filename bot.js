@@ -46,6 +46,15 @@ const REGEN_RATE = 1.2;
 const FIRST_TIME_GIFT = 2500;
 const REFERRER_BONUS = 500;
 
+// ----------------- Payments -----------------
+const BOOST_PACKAGES = {
+  boost_x2_1h: {
+    multiplier: 2,
+    duration_ms: 60 * 60 * 1000,
+    price_ton: 0.2
+  }
+};
+
 // ----------------- Helpers -----------------
 async function ensureMetaRow() {
   const { data, error } = await supabase
@@ -206,6 +215,103 @@ bot.onText(/\/start(?:\s(.+))?/, async (msg, match) => {
       ]]
     }
   });
+});
+
+// ----------------- Create payment -----------------
+app.post("/pay/create", async (req, res) => {
+  try {
+    const { user_id, item } = req.body;
+    if (!user_id || !item) {
+      return res.json({ success: false, message: "missing params" });
+    }
+
+    const pack = BOOST_PACKAGES[item];
+    if (!pack) {
+      return res.json({ success: false, message: "invalid item" });
+    }
+
+    const comment = `BOOST_${user_id}_${Date.now()}`;
+
+    const { error } = await supabase.from("payments").insert({
+      user_id: String(user_id),
+      item,
+      amount_ton: pack.price_ton,
+      comment,
+      status: "pending",
+      created_at: Date.now()
+    });
+
+    if (error) {
+      console.error("payment create error", error);
+      return res.json({ success: false });
+    }
+
+    return res.json({
+      success: true,
+      address: process.env.TON_WALLET_ADDRESS,
+      amount: pack.price_ton,
+      comment
+    });
+  } catch (e) {
+    console.error("/pay/create error", e);
+    return res.json({ success: false });
+  }
+});
+
+// ----------------- Confirm payment -----------------
+app.post("/pay/confirm", async (req, res) => {
+  try {
+    const { comment } = req.body;
+    if (!comment) return res.json({ success: false });
+
+    const { data, error } = await supabase
+      .from("payments")
+      .select("*")
+      .eq("comment", comment)
+      .eq("status", "pending")
+      .limit(1);
+
+    if (error || !data || data.length === 0) {
+      return res.json({ success: false });
+    }
+
+    const payment = data[0];
+    const pack = BOOST_PACKAGES[payment.item];
+    if (!pack) return res.json({ success: false });
+
+    // إضافة boost
+    const expires_at = Date.now() + pack.duration_ms;
+
+    const { data: udata } = await supabase
+      .from("users")
+      .select("active_effects")
+      .eq("id", payment.user_id)
+      .limit(1);
+
+    const effects = Array.isArray(udata?.[0]?.active_effects)
+      ? udata[0].active_effects.filter(e => e.expires_at > Date.now())
+      : [];
+
+    effects.push({
+      type: "boost_x2",
+      multiplier: pack.multiplier,
+      expires_at
+    });
+
+    await supabase.from("users").update({
+      active_effects: effects
+    }).eq("id", payment.user_id);
+
+    await supabase.from("payments").update({
+      status: "paid",
+      paid_at: Date.now()
+    }).eq("id", payment.id);
+
+    return res.json({ success: true });
+  } catch (e) {
+    console.error("/pay/confirm error", e);
+    return res.json({ success: false });
+  }
 });
 
 // ----------------- /state -----------------
@@ -518,5 +624,6 @@ ensureMetaRow().catch(err => console.warn("ensureMetaRow failed", err));
 app.listen(PORT, () => {
   console.log("Server running on", PORT);
 });
+
 
 
