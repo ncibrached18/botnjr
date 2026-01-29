@@ -16,7 +16,7 @@
  *  - This file keeps the same HTTP API as before (/state, /boost/levels, /boost/upgrade, /tap, etc.)
  *  - The RPC functions must exist in your Supabase DB (see the provided SQL).
  */
-
+const axios = require("axios");
 const TelegramBot = require("node-telegram-bot-api");
 const express = require("express");
 const bodyParser = require("body-parser");
@@ -260,58 +260,48 @@ app.post("/pay/create", async (req, res) => {
 
 // ----------------- Confirm payment -----------------
 app.post("/pay/confirm", async (req, res) => {
-  try {
-    const { comment } = req.body;
-    if (!comment) return res.json({ success: false });
+  const { comment } = req.body;
+  if (!comment) return res.json({ success: false });
 
-    const { data, error } = await supabase
-      .from("payments")
-      .select("*")
-      .eq("comment", comment)
-      .limit(1);
+  const payment = await supabase
+    .from("payments")
+    .select("*")
+    .eq("comment", comment)
+    .single();
 
-    if (error || !data || data.length === 0) {
-      return res.json({ success: false });
+  if (!payment.data) return res.json({ success: false });
+
+  const txs = await axios.get(
+    `https://tonapi.io/v2/blockchain/accounts/${process.env.TON_WALLET}/transactions`,
+    {
+      headers: {
+        Authorization: `Bearer ${process.env.TONAPI_KEY}`
+      }
     }
+  );
 
-    const payment = data[0];
-    const pack = BOOST_PACKAGES[payment.item];
-    if (!pack) return res.json({ success: false });
+  const found = txs.data.transactions.find(
+    tx => tx.in_msg?.message === comment
+  );
 
-    // إضافة boost
-    const expires_at = Date.now() + pack.duration_ms;
+  if (!found) return res.json({ success: false });
 
-    const { data: udata } = await supabase
-      .from("users")
-      .select("active_effects")
-      .eq("id", payment.user_id)
-      .limit(1);
-
-    const effects = Array.isArray(udata?.[0]?.active_effects)
-      ? udata[0].active_effects.filter(e => e.expires_at > Date.now())
-      : [];
-
-    effects.push({
-      type: "boost_x2",
-      multiplier: pack.multiplier,
-      expires_at
-    });
-
-    await supabase.from("users").update({
-      active_effects: effects
-    }).eq("id", payment.user_id);
-
-    await supabase.from("payments").update({
+  await supabase
+    .from("payments")
+    .update({
       status: "paid",
       paid_at: Date.now()
-    }).eq("id", payment.id);
+    })
+    .eq("comment", comment);
 
-    return res.json({ success: true });
-  } catch (e) {
-    console.error("/pay/confirm error", e);
-    return res.json({ success: false });
-  }
+  // تفعيل الـ Boost
+  await supabase.rpc("activate_boost", {
+    uid: payment.data.user_id
+  });
+
+  res.json({ success: true });
 });
+
 
 // ----------------- /state -----------------
 app.get("/state/:userId", async (req, res) => {
@@ -623,4 +613,5 @@ ensureMetaRow().catch(err => console.warn("ensureMetaRow failed", err));
 app.listen(PORT, () => {
   console.log("Server running on", PORT);
 });
+
 
