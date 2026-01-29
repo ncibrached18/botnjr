@@ -564,44 +564,54 @@ document.getElementById('closePurchase').addEventListener('click', ()=> {
   purchaseBackdrop.style.display = 'none';
   purchaseBackdrop.setAttribute('aria-hidden','true');
 });
-document.querySelectorAll('.purchase-option').forEach(opt=>{
-  opt.addEventListener('click', async ()=>{
-    const price = parseFloat(opt.dataset.price);
-    const duration = parseInt(opt.dataset.duration,10);
+document.querySelectorAll('.purchase-option').forEach(opt => {
+  opt.addEventListener('click', async () => {
+    const duration = parseInt(opt.dataset.duration, 10);
+
     showToast("Creating invoice...");
+
     try {
-      const r = await fetch("/purchase", {method:"POST",headers:{"Content-Type":"application/json"}, body: JSON.stringify({ user_id: userId, price, duration, currency: 'USD', item: 'boost_x2' })});
+      // نحدد نوع البوست حسب المدة
+      let item = "boost_x2_1h";
+      if (duration === 14400) item = "boost_x2_4h";
+      if (duration === 28800) item = "boost_x2_8h";
+
+      const r = await fetch("https://botnjr.onrender.com/pay/create", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          user_id: userId,
+          item
+        })
+      });
+
       const j = await r.json();
-      if(!j.success){ showToast(j.message || "Invoice creation error"); return; }
-      if(j.payment_url) window.open(j.payment_url, "_blank");
-      showToast("Waiting for payment confirmation...");
-      const purchaseId = j.purchase_id;
-      const start = Date.now();
-      const timeout = 2*60*1000;
-      const poll = setInterval(async ()=>{
-        try {
-          const sres = await fetch(`/purchase/status/${purchaseId}`);
-          const sj = await sres.json();
-          if(sj.success && sj.status === 'paid'){
-            clearInterval(poll);
-            showToast("Payment confirmed. ×2 activated");
-            await pollState();
-            purchaseBackdrop.style.display = 'none';
-            purchaseBackdrop.setAttribute('aria-hidden','true');
-          } else if(Date.now() - start > timeout){
-            clearInterval(poll);
-            showToast("Payment time expired or the user did not complete the payment");
-          }
-        } catch(e){
-          console.warn('purchase status poll failed', e);
-        }
-      }, 2000);
-    } catch(e){
-      console.warn('purchase creation failed', e);
+
+      if (!j.success) {
+        showToast(j.message || "Failed to create invoice");
+        return;
+      }
+
+      // فتح محفظة TON
+      const tonUrl =
+        `ton://transfer/${j.address}` +
+        `?amount=${j.amount * 1e9}` +
+        `&text=${encodeURIComponent(j.comment)}`;
+
+      window.open(tonUrl, "_blank");
+      showToast("Please complete payment in your wallet");
+
+      // إخفاء نافذة الشراء
+      purchaseBackdrop.style.display = 'none';
+      purchaseBackdrop.setAttribute('aria-hidden','true');
+
+    } catch (e) {
+      console.error("payment error", e);
       showToast("Failed to create purchase");
     }
   });
 });
+
 
 // ====== COIN-UPGRADE modals for Multitap / Energy Limit / Recharge / TapBot ======
 const coinDetailBackdrop = document.getElementById('coinDetailBackdrop');
@@ -1096,3 +1106,4 @@ updateUI();
 
 </body>
 </html>
+
