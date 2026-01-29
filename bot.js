@@ -50,10 +50,21 @@ const REFERRER_BONUS = 500;
 const BOOST_PACKAGES = {
   boost_x2_1h: {
     multiplier: 2,
-    duration_ms: 60 * 60 * 1000,
-    price_ton: 0.2
+    duration_ms: 1 * 60 * 60 * 1000,
+    price_ton: 0.4
+  },
+  boost_x2_2h: {
+    multiplier: 2,
+    duration_ms: 4 * 60 * 60 * 1000,
+    price_ton: 0.9
+  },
+  boost_x2_7h: {
+    multiplier: 2,
+    duration_ms: 8 * 60 * 60 * 1000,
+    price_ton: 3
   }
 };
+
 
 // ----------------- Helpers -----------------
 async function ensureMetaRow() {
@@ -648,6 +659,7 @@ ensureMetaRow().catch(err => console.warn("ensureMetaRow failed", err));
 app.listen(PORT, () => {
   console.log("Server running on", PORT);
 });
+
 
 
 
