@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>Pay — NJR</title>
+  <style>
+    body{font-family:Arial,Helvetica,sans-serif;background:#0f0b14;color:#fff;padding:20px}
+    .card{background:linear-gradient(180deg,#241731,#37243a);border-radius:12px;padding:18px;max-width:420px;margin:30px auto;text-align:center}
+    .btn{display:inline-block;padding:12px 18px;border-radius:10px;background:#6b46d6;color:#fff;font-weight:700;border:none;cursor:pointer}
+    .btn.ton{background:#2d9cdb}
+    .info{margin:14px 0;color:#cfc1e8}
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h2 id="title">Preparing payment...</h2>
+    <div class="info" id="desc">Please wait</div>
+    <div id="price" style="font-weight:800;font-size:20px;margin:12px 0"></div>
+
+    <button id="connectBtn" class="btn ton">Connect Wallet / Open Wallet</button>
+    <div style="height:8px"></div>
+    <button id="fallbackBtn" class="btn" style="margin-top:10px;background:#ffbf5a;color:#000;display:none">Open Wallet App</button>
+
+    <div style="height:10px"></div>
+    <div id="msg" style="color:#a9a0c6;margin-top:12px;font-size:13px"></div>
+  </div>
+
+<script>
+(async function(){
+  // قراءة params item & user
+  const params = new URLSearchParams(location.search);
+  const item = params.get('item') || 'boost_x2_1h';
+  const user = params.get('user') || '';
+
+  // نطلب من السيرفر إنشاء الفاتورة
+  async function createInvoice(){
+    try{
+      const r = await fetch('/pay/create', {
+        method: 'POST',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({ user_id: user, item: item })
+      });
+      const j = await r.json();
+      return j;
+    }catch(e){
+      return { success: false, message: 'Network error' };
+    }
+  }
+
+  const res = await createInvoice();
+  const titleEl = document.getElementById('title');
+  const descEl = document.getElementById('desc');
+  const priceEl = document.getElementById('price');
+  const msgEl = document.getElementById('msg');
+  const connectBtn = document.getElementById('connectBtn');
+  const fallbackBtn = document.getElementById('fallbackBtn');
+
+  if(!res.success){
+    titleEl.innerText = 'Payment error';
+    descEl.innerText = res.message || 'Failed to create payment';
+    msgEl.innerText = 'Please try again later';
+    connectBtn.disabled = true;
+    return;
+  }
+
+  const address = res.address;
+  const amount = Number(res.amount); // TON amount (decimal)
+  const comment = res.comment;
+
+  titleEl.innerText = 'Buy Boost ×2';
+  descEl.innerText = 'Pay with your TON wallet';
+  priceEl.innerText = `Price: ${amount} TON`;
+
+  // طريقة 1: محاولة فتح TON Connect modal (إذا تعلمت لاحقًا نضيف TonConnect SDK هنا)
+  // طريقة 2 (fallback السهل): فتح deeplink مباشر لفتح تطبيق TonKeeper أو أي محفظة تدعم الرابط
+  // نستخدم الرابط التالي (ينقل إلى موقع/تطبيق Tonkeeper إن متاح):
+  const tonkeeperLink = `https://app.tonkeeper.com/transfer/${encodeURIComponent(address)}?amount=${Math.round(amount * 1e9)}&text=${encodeURIComponent(comment)}`;
+  const tonDeeplink = `ton://transfer/${encodeURIComponent(address)}?amount=${Math.round(amount * 1e9)}&text=${encodeURIComponent(comment)}`;
+
+  // زر Connect يحاول فتح deeplink (سيظهر خيار فتح في التطبيقات على جهاز المستخدم)
+  connectBtn.addEventListener('click', ()=> {
+    // inside WebApp (Telegram) opening ton:// may or may not be allowed; app.tonkeeper link is safe fallback
+    // نفتح أولًا ton:// ثم نفتح رابط https كنسخة احتياطية بعد تأخير بسيط
+    try {
+      // محاولة فتح deeplink
+      window.location.href = tonDeeplink;
+      // بعد 700ms نفتح رابط https (fallback) — بعض الأجهزة تتطلب https
+      setTimeout(()=> {
+        window.location.href = tonkeeperLink;
+      }, 800);
+    } catch (e) {
+      window.location.href = tonkeeperLink;
+    }
+    msgEl.innerText = 'Please complete the payment in your wallet. After payment, press Back and confirm in bot if needed.';
+  });
+
+  // خيار بديل (يظهر دائماً للمستخدمين خارج Telegram)
+  fallbackBtn.style.display = 'block';
+  fallbackBtn.addEventListener('click', ()=> {
+    window.location.href = tonkeeperLink;
+  });
+
+})();
+</script>
+</body>
+</html>
