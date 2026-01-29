@@ -224,16 +224,14 @@ bot.onText(/\/buy/, async (msg) => {
   const userId = msg.from.id;
 
   // نطلب إنشاء الدفع من السيرفر نفسه
-  const res = await fetch("https://botnjr.onrender.com/pay/create", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      user_id: String(userId),
-      item: "boost_x2_1h"
-    })
-  });
+  const { data } = await axios.post(
+  "https://botnjr.onrender.com/pay/create",
+  {
+    user_id: String(userId),
+    item: "boost_x2_1h"
+  }
+);
 
-  const data = await res.json();
   if (!data.success) {
     return bot.sendMessage(chatId, "❌ فشل إنشاء الدفع");
   }
@@ -308,13 +306,14 @@ app.post("/pay/confirm", async (req, res) => {
   if (!payment.data) return res.json({ success: false });
 
   const txs = await axios.get(
-    `https://tonapi.io/v2/blockchain/accounts/${process.env.TON_WALLET}/transactions`,
-    {
-      headers: {
-        Authorization: `Bearer ${process.env.TONAPI_KEY}`
-      }
+  `https://tonapi.io/v2/blockchain/accounts/${process.env.TON_WALLET_ADDRESS}/transactions`,
+  {
+    headers: {
+      Authorization: `Bearer ${process.env.TONAPI_KEY}`
     }
-  );
+  }
+);
+
 
   const found = txs.data.transactions.find(
     tx => tx.in_msg?.message === comment
@@ -649,6 +648,7 @@ ensureMetaRow().catch(err => console.warn("ensureMetaRow failed", err));
 app.listen(PORT, () => {
   console.log("Server running on", PORT);
 });
+
 
 
 
