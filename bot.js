@@ -235,32 +235,23 @@ bot.onText(/\/start(?:\s(.+))?/, async (msg, match) => {
 
 // ----------------- نضيف زر في البوت داخل كود البوت (مثلاً بعد /start أو أمر /buy): -----------------
 
+// snippet: inside bot.onText(/\/buy/, ... )
 bot.onText(/\/buy/, async (msg) => {
   const chatId = msg.chat.id;
-  const userId = msg.from.id;
+  const userId = String(msg.from.id);
 
-  // نطلب إنشاء الدفع من السيرفر نفسه
-  const { data } = await axios.post(
-  "https://botnjr.onrender.com/pay/create",
-  {
-    user_id: String(userId),
-    item: "boost_x2_1h"
-  }
-);
+  // نرسل زر يفتح صفحة الويب (داخل Telegram WebApp) لصفحة الدفع
+  const webAppUrl = (process.env.WEB_APP_URL || "https://botnjr.onrender.com") + `/pay.html?item=boost_x2_1h&user=${encodeURIComponent(userId)}`;
 
-  if (!data.success) {
-    return bot.sendMessage(chatId, "❌ فشل إنشاء الدفع");
-  }
-
-  const tonUrl =
-    `https://app.tonkeeper.com/transfer/${process.env.TON_WALLET_ADDRESS}` +
-    `?amount=${data.amount * 1e9}` +
-    `&text=${encodeURIComponent(data.comment)}`;
-
-  bot.sendMessage(chatId, "💎 اشترِ Boost x2 لمدة ساعة:", {
+  bot.sendMessage(chatId, "💎 اختر طريقة الدفع:", {
     reply_markup: {
       inline_keyboard: [[
-        { text: "💳 ادفع عبر Tonkeeper", url: tonUrl }
+        {
+          text: "💳 Buy Boost ×2 (Open WebApp)",
+          web_app: {
+            url: webAppUrl
+          }
+        }
       ]]
     }
   });
@@ -666,3 +657,4 @@ ensureMetaRow().catch(err => console.warn("ensureMetaRow failed", err));
 app.listen(PORT, () => {
   console.log("Server running on", PORT);
 });
+
