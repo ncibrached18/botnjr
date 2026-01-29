@@ -299,6 +299,25 @@ app.post("/pay/create", async (req, res) => {
   }
 });
 
+// Endpoint: check payment status by comment
+app.get('/pay/status/:comment', async (req, res) => {
+  try {
+    const comment = String(req.params.comment || '');
+    if (!comment) return res.json({ found: false });
+
+    const { data, error } = await supabase.from('payments').select('*').eq('comment', comment).limit(1).single();
+    if (error) {
+      // if not found, return not found
+      return res.json({ found: false });
+    }
+    const row = data;
+    return res.json({ found: true, status: row.status || 'created' });
+  } catch (err) {
+    console.error('/pay/status error', err);
+    return res.json({ found: false });
+  }
+});
+
 // ----------------- Confirm payment -----------------
 app.post("/pay/confirm", async (req, res) => {
   const { comment } = req.body;
@@ -657,4 +676,5 @@ ensureMetaRow().catch(err => console.warn("ensureMetaRow failed", err));
 app.listen(PORT, () => {
   console.log("Server running on", PORT);
 });
+
 
