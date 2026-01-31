@@ -3,43 +3,42 @@
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width,initial-scale=1"/>
-  <title>Pay — NJR (TON Connect)</title>
+  <title>NJR — Pay (TON Connect)</title>
+  <link rel="stylesheet" href="https://unpkg.com/@tonconnect/ui/dist/tonconnect-ui.min.css"/>
   <style>
-    body{font-family:Arial,Helvetica,sans-serif;background:#0f0b14;color:#fff;padding:20px}
-    .card{background:linear-gradient(180deg,#241731,#37243a);border-radius:12px;padding:18px;max-width:420px;margin:30px auto;text-align:center}
-    .btn{display:inline-block;padding:12px 18px;border-radius:10px;background:#6b46d6;color:#fff;font-weight:700;border:none;cursor:pointer}
-    .btn.ton{background:#2d9cdb}
-    .info{margin:14px 0;color:#cfc1e8}
-    .toast{position:fixed;left:50%;transform:translateX(-50%);bottom:24px;background:#111;padding:10px 14px;border-radius:8px;color:#fff;display:none}
+    body{font-family:Arial,Helvetica,sans-serif;background:#0f0b14;color:#fff;padding:18px}
+    .card{max-width:520px;margin:36px auto;background:linear-gradient(180deg,#241731,#37243a);padding:18px;border-radius:12px;text-align:center}
+    .btn{padding:12px 18px;border-radius:10px;background:#2d9cdb;color:#fff;font-weight:700;border:none;cursor:pointer}
+    .btn.secondary{background:#6b46d6}
+    .info{color:#cfc1e8;margin:10px 0}
+    .log{margin-top:10px;color:#a9a0c6;font-size:13px;white-space:pre-wrap;text-align:left;max-height:160px;overflow:auto;padding:8px;background:rgba(255,255,255,0.02);border-radius:8px}
   </style>
 </head>
 <body>
   <div class="card">
-    <h2 id="title">Preparing payment...</h2>
-    <div class="info" id="desc">Please wait</div>
-    <div id="price" style="font-weight:800;font-size:20px;margin:12px 0"></div>
+    <h2 id="title">Buy Boost ×2</h2>
+    <div id="desc" class="info">Connect a TON wallet to pay</div>
+    <div id="price" style="font-weight:800;font-size:20px;margin:8px 0"></div>
 
-    <button id="connectBtn" class="btn ton">Connect Wallet</button>
-    <div style="height:8px"></div>
-    <button id="cancelBtn" class="btn" style="margin-top:10px;background:#444;color:#fff">Cancel</button>
+    <div style="display:flex;gap:8px;justify-content:center;margin-top:12px">
+      <button id="connectBtn" class="btn">Connect Wallet</button>
+      <button id="openFallback" class="btn secondary">Open Tonkeeper (fallback)</button>
+    </div>
 
-    <div style="height:10px"></div>
-    <div id="msg" style="color:#a9a0c6;margin-top:12px;font-size:13px"></div>
+    <div id="msg" class="info"></div>
+    <div id="log" class="log" aria-live="polite"></div>
   </div>
 
-  <div id="toast" class="toast"></div>
-
-  <!-- TonConnect UMD bundle (from unpkg) -->
+  <!-- TonConnect SDK + UI UMD bundles -->
   <script src="https://unpkg.com/@tonconnect/sdk/dist/tonconnect.umd.js"></script>
+  <script src="https://unpkg.com/@tonconnect/ui/dist/tonconnect-ui.min.js"></script>
+
   <script>
   (async function(){
-    const toast = (t, ms=1800) => {
-      const el = document.getElementById('toast');
-      el.innerText = t; el.style.display = 'block';
-      clearTimeout(el._to);
-      el._to = setTimeout(()=> el.style.display='none', ms);
-    };
+    const logEl = document.getElementById('log');
+    function log(...args){ console.log(...args); logEl.innerText += args.map(x=>typeof x==='object'?JSON.stringify(x):String(x)).join(' ') + "\\n"; }
 
+    // read params
     const params = new URLSearchParams(location.search);
     const item = params.get('item') || 'boost_x2_1h';
     const user = params.get('user') || '';
@@ -53,110 +52,112 @@
           body: JSON.stringify({ user_id: user, item })
         });
         return await res.json();
-      } catch(e){
-        return { success:false, message: 'Network error' };
+      }catch(e){
+        return { success:false, message:'network error', error: String(e) };
       }
     }
 
     const res = await createInvoice();
-    const titleEl = document.getElementById('title');
-    const descEl = document.getElementById('desc');
-    const priceEl = document.getElementById('price');
-    const msgEl = document.getElementById('msg');
-    const connectBtn = document.getElementById('connectBtn');
-    const cancelBtn = document.getElementById('cancelBtn');
-
     if(!res.success){
-      titleEl.innerText = 'Payment error';
-      descEl.innerText = res.message || 'Failed to create payment';
-      msgEl.innerText = 'Please try again later';
-      connectBtn.disabled = true;
+      document.getElementById('title').innerText = 'Payment error';
+      document.getElementById('desc').innerText = res.message || 'Failed to create invoice';
+      log('createInvoice failed', res);
       return;
     }
 
-    const address = res.address;
-    const amount = Number(res.amount);
-    const comment = res.comment;
+    document.getElementById('price').innerText = `Price: ${res.amount} TON`;
+    log('invoice created', res);
 
-    titleEl.innerText = 'Buy Boost ×2';
-    descEl.innerText = 'Connect a TON wallet to pay';
-    priceEl.innerText = `Price: ${amount} TON`;
-
-    // Initialize TonConnect with manifest hosted on same origin
+    // TonConnect initialisation
     const manifestUrl = `${location.origin}/tonconnect-manifest.json`;
+    log('manifestUrl', manifestUrl);
+
+    // create TonConnect instance (UMD exposes TonConnect on window.TonConnect)
     const tonConnect = new window.TonConnect.TonConnect({ manifestUrl });
 
-    // function to start the connection modal
-    async function openTonConnect() {
-      try {
-        // show modal and let user select wallet
-        await tonConnect.connect(); // opens TonConnect modal
+    // create UI helper (UMD exposes TonConnectUI on window.TonConnectUI)
+    const tonConnectUI = new window.TonConnectUI.TonConnectUI({ tonConnect });
 
-        // after connect, provider available
+    // handler: open modal & connect
+    async function onConnectClick(){
+      try{
+        // open modal to choose wallet (TonConnect UI)
+        await tonConnect.connect(); // triggers TonConnect modal (wallet list)
+        // after connect, provider should be available through tonConnect
         const provider = tonConnect.provider;
+        log('connected', { provider: !!provider, connectedWallet: tonConnect.connectedWallet });
+
         if(!provider){
-          toast('No provider available');
+          // if provider missing, show UI (fallback)
+          tonConnectUI.open();
+          log('provider missing — opened UI');
           return;
         }
 
-        // Build transfer payload for ton_sendTransaction (value in nanotons as string)
-        const valueNano = String(Math.round(amount * 1e9));
-        const tx = {
-          to: address,
-          value: valueNano,
-          // Some wallets support 'text' or 'payload' - we include text as comment
-          // Some implementors expect 'data' or 'payload'; text works with TonKeeper
-          text: comment
-        };
+        // prepare transaction payload (nanotons)
+        const to = res.address;
+        const value = String(Math.round(Number(res.amount) * 1e9)); // in nanotons
+        const comment = res.comment;
 
-        // Request transaction via provider (TonConnect uses JSON-RPC style method)
-        // Method 'ton_sendTransaction' is commonly supported
-        await provider.request({
-          method: 'ton_sendTransaction',
-          params: [tx]
-        });
+        // Most wallets accept 'ton_sendTransaction' with object { to, value, text } (Tonkeeper supports text)
+        const tx = { to, value, text: comment };
 
-        // start polling server for payment confirmation (server /pay/status)
-        startPollingPayment(comment);
+        // send transaction request to wallet (shows confirm screen inside wallet)
+        log('requesting transaction', tx);
+        await provider.request({ method: 'ton_sendTransaction', params: [tx] });
 
-        toast('Transaction sent. Please confirm in your wallet', 2500);
+        log('transaction requested — waiting for confirmation in wallet');
+        startPolling(comment);
 
-      } catch (err) {
-        console.error('TonConnect error', err);
-        toast('Wallet connect failed');
+      } catch (err){
+        log('connect/send error', err);
+        // Fall back to open TonConnect UI (if not opened)
+        try { tonConnectUI.open(); } catch(e){ log('UI open failed', e); }
       }
     }
 
-    connectBtn.addEventListener('click', openTonConnect);
-    cancelBtn.addEventListener('click', ()=> {
-      try { if(window.Telegram && window.Telegram.WebApp) window.Telegram.WebApp.close(); else history.back(); } catch(e){ history.back(); }
+    document.getElementById('connectBtn').addEventListener('click', onConnectClick);
+
+    // fallback button — open Tonkeeper web transfer page (if user prefers)
+    document.getElementById('openFallback').addEventListener('click', ()=>{
+      const tonKeeperUrl = `https://app.tonkeeper.com/transfer/${encodeURIComponent(res.address)}?amount=${Math.round(Number(res.amount)*1e9)}&text=${encodeURIComponent(res.comment)}`;
+      window.open(tonKeeperUrl, '_blank');
     });
 
-    // polling to check payment status (server endpoint)
+    // Polling /pay/status/:comment
     let pollTimer = null;
-    async function checkPaymentStatus(comment){
+    async function checkStatus(comment){
       try{
         const r = await fetch(`/pay/status/${encodeURIComponent(comment)}`);
-        const j = await r.json();
-        return j;
+        return await r.json();
       }catch(e){ return { found:false }; }
     }
 
-    function startPollingPayment(comment){
+    function startPolling(comment){
       if(pollTimer) return;
+      let tries = 0;
+      const maxTries = 120; // ~5 minutes
       pollTimer = setInterval(async ()=>{
-        const s = await checkPaymentStatus(comment);
+        tries++;
+        const s = await checkStatus(comment);
+        log('poll', tries, s);
         if(s && s.found && s.status === 'paid'){
-          clearInterval(pollTimer);
-          pollTimer = null;
-          toast('Payment received — activating boost', 2000);
-          // call /pay/confirm to ensure server activates the boost
-          try { await fetch('/pay/confirm', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ comment }) }); } catch(e){}
-          setTimeout(()=>{ try{ if(window.Telegram && window.Telegram.WebApp) window.Telegram.WebApp.close(); else window.close(); } catch(e){ window.close(); } }, 1200);
+          clearInterval(pollTimer); pollTimer = null;
+          document.getElementById('msg').innerText = 'Payment confirmed — activating boost';
+          // call /pay/confirm to process server-side just in case
+          try { await fetch('/pay/confirm', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ comment }) }); } catch(e){ log('confirm call failed', e); }
+          setTimeout(()=>{ try{ if(window.Telegram && window.Telegram.WebApp) window.Telegram.WebApp.close(); else window.close(); } catch(e){} }, 900);
+        } else if(tries >= maxTries){
+          clearInterval(pollTimer); pollTimer = null;
+          document.getElementById('msg').innerText = 'Payment timeout — please check your wallet';
         }
       }, 2500);
     }
 
+    // If TonConnect modal didn't show (some WebViews block), attempt to open UI explicitly
+    // Also attempt auto-open when page loaded in WebApp, but don't force it.
+    // (You still must click "Connect Wallet" to open modal in many mobile webviews.)
+    log('ready — click Connect Wallet to open TonConnect modal');
   })();
   </script>
 </body>
