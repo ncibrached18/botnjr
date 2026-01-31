@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1"/>
   <title>NJR — Pay (TON Connect)</title>
 
-  <!-- نستخدم ملف CSS محلي أولاً (public/tonconnect-ui.min.css) -->
+  <!-- CSS محلي أولاً -->
   <link rel="stylesheet" href="/tonconnect-ui.min.css" id="tonconnect-ui-css"/>
 
   <style>
@@ -36,147 +36,107 @@
 (async function(){
   const logEl = document.getElementById('log');
   const msgEl = document.getElementById('msg');
-  function log(...args){ console.log(...args); logEl.innerText += args.map(x=> typeof x === 'object' ? JSON.stringify(x) : String(x)).join(' ') + "\n"; }
-  function setMsg(t){ msgEl.innerText = t; }
+  function log(...args){ console.log(...args); if(logEl) logEl.innerText += args.map(x=> typeof x === 'object' ? JSON.stringify(x) : String(x)).join(' ') + "\n"; }
+  function setMsg(t){ if(msgEl) msgEl.innerText = t; }
 
-  // helper to load script
+  // loader script helper
   function loadScript(src){
     return new Promise((resolve,reject)=>{
       const s = document.createElement('script');
       s.src = src;
       s.async = true;
       s.onload = ()=>{ log('loaded', src); resolve(); };
-      s.onerror = (e)=>{ log('failed to load', src); reject(new Error('Failed load '+src));};
+      s.onerror = (e)=>{ log('failed to load', src); reject(new Error('Failed load '+src)); };
       document.head.appendChild(s);
     });
   }
 
-  // file names to try (local first, then CDN fallback)
-  const localSDK = '/tonconnect-sdk.min.js';
-  const localUI = '/tonconnect-ui.min.js';
-  const cdnSDK_unpkg = 'https://unpkg.com/@tonconnect/sdk@latest/dist/tonconnect-sdk.min.js';
-  const cdnSDK_jsdelivr = 'https://cdn.jsdelivr.net/npm/@tonconnect/sdk@latest/dist/tonconnect-sdk.min.js';
-  const cdnUI_unpkg = 'https://unpkg.com/@tonconnect/ui@latest/dist/tonconnect-ui.min.js';
-  const cdnUI_jsdelivr = 'https://cdn.jsdelivr.net/npm/@tonconnect/ui@latest/dist/tonconnect-ui.min.js';
-  const cdnCSS_unpkg = 'https://unpkg.com/@tonconnect/ui@latest/dist/tonconnect-ui.min.css';
-  const localCSS = '/tonconnect-ui.min.css';
-
-  // ensure CSS available: try HEAD local then fallback to CDN
+  // Ensure CSS - try local then CDN
   try {
-    const cssHref = document.getElementById('tonconnect-ui-css')?.getAttribute('href') || localCSS;
-    log('css href', cssHref);
-    const r = await fetch(cssHref, { method:'HEAD' });
-    if(!r.ok) throw new Error('css not found');
-    log('CSS exists:', cssHref);
+    const r = await fetch('/tonconnect-ui.min.css', { method:'HEAD' });
+    if(!r.ok) throw new Error('missing local css');
+    log('CSS local ok');
   } catch(e){
     log('CSS missing locally, using CDN', e.message);
-    document.getElementById('tonconnect-ui-css').setAttribute('href', cdnCSS_unpkg);
+    const link = document.getElementById('tonconnect-ui-css') || document.createElement('link');
+    link.id = 'tonconnect-ui-css';
+    link.rel = 'stylesheet';
+    link.href = 'https://cdn.jsdelivr.net/npm/@tonconnect/ui@latest/dist/tonconnect-ui.min.css';
+    document.head.appendChild(link);
   }
 
-  // load SDK
-  let sdkLoaded = false;
-  try {
-    log('Trying local SDK', localSDK);
-    await loadScript(localSDK);
-    sdkLoaded = true;
-  } catch(e){
-    log('local SDK failed, trying unpkg', e.message);
-    try { await loadScript(cdnSDK_unpkg); sdkLoaded = true; }
-    catch(e2){ log('unpkg SDK failed, trying jsdelivr', e2.message);
-      try { await loadScript(cdnSDK_jsdelivr); sdkLoaded = true; } catch(e3){ log('jsdelivr SDK failed', e3.message); }
+  // Load SDK & UI JS if not already present
+  if(!window.TonConnectSDK && !window.TonConnect){
+    try { await loadScript('/tonconnect-sdk.min.js'); log('local sdk loaded'); } catch(e){
+      log('local sdk failed, trying CDN', e.message);
+      try { await loadScript('https://cdn.jsdelivr.net/npm/@tonconnect/sdk@latest/dist/tonconnect-sdk.min.js'); log('cdn sdk loaded'); } catch(e2){ log('cdn sdk failed', e2.message); }
+    }
+  }
+  if(!window.TonConnectUI && !window.TON_CONNECT_UI){
+    try { await loadScript('/tonconnect-ui.min.js'); log('local ui loaded'); } catch(e){
+      log('local ui failed, trying CDN', e.message);
+      try { await loadScript('https://cdn.jsdelivr.net/npm/@tonconnect/ui@latest/dist/tonconnect-ui.min.js'); log('cdn ui loaded'); } catch(e2){ log('cdn ui failed', e2.message); }
     }
   }
 
-  // load UI
-  let uiLoaded = false;
-  try {
-    log('Trying local UI', localUI);
-    await loadScript(localUI);
-    uiLoaded = true;
-  } catch(e){
-    log('local UI failed, trying unpkg', e.message);
-    try { await loadScript(cdnUI_unpkg); uiLoaded = true; }
-    catch(e2){ log('unpkg UI failed, trying jsdelivr', e2.message);
-      try { await loadScript(cdnUI_jsdelivr); uiLoaded = true; } catch(e3){ log('jsdelivr UI failed', e3.message); }
-    }
-  }
-
-  log('load result', { sdkLoaded, uiLoaded });
-
-  // check manifest
-  const manifestUrl = `${location.origin}/tonconnect-manifest.json`;
-  try {
-    const r = await fetch(manifestUrl);
-    if(!r.ok) throw new Error('manifest not found '+r.status);
-    log('manifest OK', manifestUrl);
-  } catch(e){
-    log('manifest error', e.message);
-    setMsg('Manifest not found — check /tonconnect-manifest.json');
-  }
-
-  // detect globals (SDK exposes TonConnectSDK, UI exposes TonConnectUI or TON_CONNECT_UI)
   log('window keys', { TonConnectSDK: !!window.TonConnectSDK, TonConnect: !!window.TonConnect, TonConnectUI: !!window.TonConnectUI, TON_CONNECT_UI: !!window.TON_CONNECT_UI });
-  const TonConnectSDKGlobal = window.TonConnectSDK || window.TonConnect || (window.TonConnectSDK && window.TonConnectSDK.TonConnect);
-  const TonConnectUIGlobal = window.TonConnectUI || window.TON_CONNECT_UI || (window.TonConnectUI && window.TonConnectUI.TonConnectUI);
+
+  // Determine SDK/UI globals
+  const TonConnectSDKGlobal = window.TonConnectSDK || window.TonConnect || null;
+  const TonConnectUIGlobal = window.TonConnectUI || window.TON_CONNECT_UI || null;
 
   if(!TonConnectSDKGlobal){
-    setMsg('TonConnect SDK not available');
-    log('TonConnect SDK missing — cannot open wallet chooser');
-    // still keep connect button disabled so user uses fallback
-  } else if(!TonConnectUIGlobal){
-    setMsg('TonConnect UI not available — wallet chooser may not show nicely');
-    log('TonConnect UI missing but SDK is present');
-  } else {
-    setMsg('TonConnect loaded — ready');
+    setMsg('TonConnect SDK missing; only fallback available');
+    log('SDK missing; cannot continue');
+    // still allow fallback button to open Tonkeeper deeplink
   }
 
-  // create invoice helper
+  // create TonConnect
+  let tonConnect = null;
+  const manifestUrl = `${location.origin}/tonconnect-manifest.json`;
+  if(TonConnectSDKGlobal){
+    try {
+      const TonCtor = TonConnectSDKGlobal.TonConnect || TonConnectSDKGlobal;
+      tonConnect = new TonCtor({ manifestUrl });
+      log('tonConnect created');
+    } catch(e){
+      log('TonConnect init error', e && e.message ? e.message : e);
+      setMsg('TonConnect init failed — check console');
+      // continue to allow fallback
+    }
+  }
+
+  // create UI
+  let tonConnectUI = null;
+  if(TonConnectUIGlobal && tonConnect){
+    try {
+      const UIctor = TonConnectUIGlobal.TonConnectUI || TonConnectUIGlobal;
+      tonConnectUI = new UIctor({ tonConnect });
+      log('tonConnectUI created');
+    } catch(e){ log('TonConnectUI init error', e); }
+  } else if(!TonConnectUIGlobal){
+    log('TonConnectUI not available; chooser UI will not show');
+  }
+
+  // invoice creation
   const params = new URLSearchParams(location.search);
   const item = params.get('item') || 'boost_x2_1h';
   const user = params.get('user') || '';
 
   async function createInvoice(){
     try {
-      const r = await fetch('/pay/create', {
-        method:'POST',
-        headers:{ 'Content-Type':'application/json' },
-        body: JSON.stringify({ user_id: user, item })
-      });
+      const r = await fetch('/pay/create', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ user_id:user, item })});
       const j = await r.json();
       log('createInvoice', j);
       return j;
-    } catch(e){
-      log('createInvoice error', e);
-      return { success:false, message:'network error' };
-    }
+    } catch(e){ log('createInvoice error', e); return { success:false, message:'network' }; }
   }
 
-  // if SDK present initialize TonConnect and UI
-  let tonConnect, tonConnectUI, invoice;
-  if(TonConnectSDKGlobal){
-    const TonConnectCtor = TonConnectSDKGlobal.TonConnect || TonConnectSDKGlobal;
-    try {
-      tonConnect = new TonConnectCtor({ manifestUrl });
-      if(TonConnectUIGlobal){
-        const TonConnectUICtor = TonConnectUIGlobal.TonConnectUI || TonConnectUIGlobal;
-        tonConnectUI = new TonConnectUICtor({ tonConnect });
-      }
-    } catch(e){
-      log('TonConnect init error', e);
-    }
-  }
-
-  // Prepare invoice now (so fallback URL includes comment)
-  invoice = await createInvoice();
-  if(!invoice.success){
-    document.getElementById('title').innerText = 'Payment error';
-    document.getElementById('desc').innerText = invoice.message || 'Failed to create invoice';
-    setMsg('Invoice creation failed');
-    return;
-  }
+  const invoice = await createInvoice();
+  if(!invoice.success){ setMsg('Invoice creation failed'); return; }
   document.getElementById('price').innerText = `Price: ${invoice.amount} TON`;
 
-  // connect & pay flow using TonConnect provider if available
+  // send tx via provider
   async function requestSendTransaction(provider){
     try {
       const to = invoice.address;
@@ -185,7 +145,7 @@
       const tx = { to, value, text: comment };
       log('requestSendTransaction ->', tx);
       setMsg('Requesting transaction in wallet...');
-      await provider.request({ method: 'ton_sendTransaction', params: [tx] });
+      await provider.request({ method:'ton_sendTransaction', params: [tx] });
       setMsg('Transaction requested — waiting for confirmation...');
       startPolling(comment);
     } catch(e){
@@ -194,70 +154,57 @@
     }
   }
 
+  // connect and pay: open chooser then wait provider
   async function connectAndPay(){
-    if(!tonConnect){
-      setMsg('TonConnect not initialized — use fallback');
-      return;
+    setMsg('Opening wallet chooser...');
+    if(tonConnectUI && typeof tonConnectUI.open === 'function'){
+      try { tonConnectUI.open(); } catch(e){ log('tonConnectUI.open error', e); }
+    } else {
+      try { await tonConnect.connect(); } catch(e){ log('tonConnect.connect rejected', e); }
     }
-    setMsg('Connecting to wallet...');
-    try { await tonConnect.connect(); log('connect result', tonConnect.connectedWallet); } catch(e){ log('connect rejected', e); }
-    const provider = tonConnect.provider;
-    if(provider){
-      await requestSendTransaction(provider); return;
-    }
-    // open UI as fallback to let user choose wallet
-    try {
-      if(tonConnectUI && typeof tonConnectUI.open === 'function'){
-        tonConnectUI.open();
-        setMsg('Please select a wallet from chooser...');
-      } else {
-        setMsg('Wallet chooser not available');
-      }
-    } catch(e){ log('tonConnectUI.open failed', e); setMsg('Failed to open wallet chooser'); }
 
-    // wait for provider
+    // wait provider
     let attempts = 0;
-    while(attempts < 20 && !tonConnect.provider){
+    const maxAttempts = 30;
+    while(attempts < maxAttempts && !(tonConnect && tonConnect.provider)){
       await new Promise(r=>setTimeout(r, 500));
       attempts++;
       log('waiting for provider', attempts);
     }
-    if(tonConnect.provider){
+    if(tonConnect && tonConnect.provider){
+      log('provider detected', tonConnect.provider);
       await requestSendTransaction(tonConnect.provider);
     } else {
       setMsg('No wallet provider detected — use fallback button');
+      log('provider not detected');
     }
   }
 
-  // Polling like before
+  // poll payment endpoint
   let pollTimer = null;
-  async function checkPaymentStatus(comment){
-    try{ const r = await fetch(`/pay/status/${encodeURIComponent(comment)}`); return await r.json(); } catch(e){ return { success:false }; }
-  }
+  async function checkPaymentStatus(comment){ try{ const r = await fetch(`/pay/status/${encodeURIComponent(comment)}`); return await r.json(); }catch(e){ return { success:false }; } }
   function startPolling(comment){
     if(pollTimer) return;
     pollTimer = setInterval(async ()=>{
       const s = await checkPaymentStatus(comment);
       log('poll', s);
       if(s && s.found && s.status === 'paid'){
-        clearInterval(pollTimer); pollTimer=null;
+        clearInterval(pollTimer); pollTimer = null;
         setMsg('Payment received — activating boost');
         try { await fetch('/pay/confirm', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ comment }) }); } catch(e){}
-        setTimeout(()=>{ try{ if(window.Telegram && window.Telegram.WebApp) window.Telegram.WebApp.close(); else window.close(); } catch(e){ try{ window.close(); }catch(_){} } }, 1200);
+        setTimeout(()=>{ try{ if(window.Telegram && window.Telegram.WebApp) window.Telegram.WebApp.close(); else window.close(); } catch(e){} }, 1200);
       }
     }, 2500);
   }
 
   // wire buttons
-  document.getElementById('connectBtn').addEventListener('click', async ()=>{
-    document.getElementById('connectBtn').disabled = true;
-    try { await connectAndPay(); } finally { document.getElementById('connectBtn').disabled = false; }
-  });
-  document.getElementById('openFallback').addEventListener('click', ()=>{
+  document.getElementById('connectBtn').addEventListener('click', async ()=>{ document.getElementById('connectBtn').disabled = true; try{ await connectAndPay(); } finally{ document.getElementById('connectBtn').disabled = false; } });
+  document.getElementById('openFallback').addEventListener('click', ()=> {
     const tonKeeperUrl = `https://app.tonkeeper.com/transfer/${encodeURIComponent(invoice.address)}?amount=${Math.round(Number(invoice.amount)*1e9)}&text=${encodeURIComponent(invoice.comment)}`;
     try { if(window.Telegram && window.Telegram.WebApp && typeof window.Telegram.WebApp.openLink === 'function') window.Telegram.WebApp.openLink(tonKeeperUrl); else window.open(tonKeeperUrl, '_blank'); } catch(e){ window.open(tonKeeperUrl, '_blank'); }
   });
 
+  setMsg('Ready — click Connect Wallet');
 })();
 </script>
 </body>
