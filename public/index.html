@@ -564,6 +564,8 @@ document.getElementById('closePurchase').addEventListener('click', ()=> {
   purchaseBackdrop.style.display = 'none';
   purchaseBackdrop.setAttribute('aria-hidden','true');
 });
+
+/* ====== UPDATED purchase-option handler: opens wallet correctly inside Telegram WebApp and polls status ====== */
 document.querySelectorAll('.purchase-option').forEach(opt => {
   opt.addEventListener('click', async () => {
     const duration = parseInt(opt.dataset.duration, 10);
@@ -571,12 +573,14 @@ document.querySelectorAll('.purchase-option').forEach(opt => {
     showToast("Creating invoice...");
 
     try {
-      // نحدد نوع البوست حسب المدة
+      // map duration to server item keys
       let item = "boost_x2_1h";
-      if (duration === 7200) item = "boost_x2_2h";
-      if (duration === 25200) item = "boost_x2_7h";
+      if (duration === 3600) item = "boost_x2_1h";
+      else if (duration === 14400) item = "boost_x2_2h";
+      else if (duration === 28800) item = "boost_x2_7h";
 
-      const r = await fetch("https://botnjr.onrender.com/pay/create", {
+      // create invoice (use relative path so it works on same origin)
+      const r = await fetch("/pay/create", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -592,18 +596,69 @@ document.querySelectorAll('.purchase-option').forEach(opt => {
         return;
       }
 
-      // فتح محفظة TON
-      const tonUrl =
-        `ton://transfer/${j.address}` +
-        `?amount=${j.amount * 1e9}` +
-        `&text=${encodeURIComponent(j.comment)}`;
+      // prepare deeplink and https fallback
+      const amountNano = Math.round(Number(j.amount) * 1e9);
+      const tonDeeplink = `ton://transfer/${encodeURIComponent(j.address)}?amount=${amountNano}&text=${encodeURIComponent(j.comment)}`;
+      const tonKeeperUrl = `https://app.tonkeeper.com/transfer/${encodeURIComponent(j.address)}?amount=${amountNano}&text=${encodeURIComponent(j.comment)}`;
 
-      location.href = tonUrl;
+      // open external link helper: prefer Telegram.WebApp.openLink if available
+      function openExternal(url){
+        try {
+          if (window.Telegram && window.Telegram.WebApp && typeof window.Telegram.WebApp.openLink === 'function') {
+            window.Telegram.WebApp.openLink(url);
+            return;
+          }
+        } catch(e){}
+        // fallback
+        window.location.href = url;
+      }
+
+      // Try deeplink first then fallback to https after timeout
+      try {
+        openExternal(tonDeeplink);
+        setTimeout(() => { openExternal(tonKeeperUrl); }, 800);
+      } catch (e) {
+        openExternal(tonKeeperUrl);
+      }
+
       showToast("Please complete payment in your wallet");
 
-      // إخفاء نافذة الشراء
+      // hide purchase modal
       purchaseBackdrop.style.display = 'none';
       purchaseBackdrop.setAttribute('aria-hidden','true');
+
+      // start polling for payment status
+      (function startPolling(comment){
+        let tries = 0;
+        const maxTries = 120; // poll limit (approx 5 minutes)
+        const interval = 2500;
+        const timer = setInterval(async () => {
+          tries++;
+          try {
+            const res = await fetch(`/pay/status/${encodeURIComponent(comment)}`);
+            const s = await res.json();
+            if (s && s.found && s.status === 'paid') {
+              clearInterval(timer);
+              showToast('Payment confirmed', 2000);
+              // ensure server processes the payment (activate boost)
+              try {
+                await fetch('/pay/confirm', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ comment }) });
+              } catch(e){}
+              // refresh client state
+              try { await pollState(); } catch(e){}
+              // close webapp if possible
+              try { if (window.Telegram && window.Telegram.WebApp) window.Telegram.WebApp.close(); } catch(e){}
+              return;
+            }
+            if (tries >= maxTries) {
+              clearInterval(timer);
+              showToast('Payment timeout — please check your wallet', 3000);
+            }
+          } catch (err) {
+            console.warn('payment status poll error', err);
+          }
+        }, interval);
+      })(j.comment);
 
     } catch (e) {
       console.error("payment error", e);
@@ -611,6 +666,7 @@ document.querySelectorAll('.purchase-option').forEach(opt => {
     }
   });
 });
+/* ====== end purchase handler ====== */
 
 
 // ====== COIN-UPGRADE modals for Multitap / Energy Limit / Recharge / TapBot ======
@@ -1106,5 +1162,3 @@ updateUI();
 
 </body>
 </html>
-
-
