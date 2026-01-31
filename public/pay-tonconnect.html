@@ -36,7 +36,7 @@
   <script>
   (async function(){
     const logEl = document.getElementById('log');
-    function log(...args){ console.log(...args); logEl.innerText += args.map(x=>typeof x==='object'?JSON.stringify(x):String(x)).join(' ') + "\\n"; }
+    function log(...args){ console.log(...args); logEl.innerText += args.map(x=>typeof x==='object'?JSON.stringify(x):String(x)).join(' ') + "\n"; }
 
     // read params
     const params = new URLSearchParams(location.search);
@@ -78,52 +78,6 @@
     // create UI helper (UMD exposes TonConnectUI on window.TonConnectUI)
     const tonConnectUI = new window.TonConnectUI.TonConnectUI({ tonConnect });
 
-    // handler: open modal & connect
-    async function onConnectClick(){
-      try{
-        // open modal to choose wallet (TonConnect UI)
-        await tonConnect.connect(); // triggers TonConnect modal (wallet list)
-        // after connect, provider should be available through tonConnect
-        const provider = tonConnect.provider;
-        log('connected', { provider: !!provider, connectedWallet: tonConnect.connectedWallet });
-
-        if(!provider){
-          // if provider missing, show UI (fallback)
-          tonConnectUI.open();
-          log('provider missing — opened UI');
-          return;
-        }
-
-        // prepare transaction payload (nanotons)
-        const to = res.address;
-        const value = String(Math.round(Number(res.amount) * 1e9)); // in nanotons
-        const comment = res.comment;
-
-        // Most wallets accept 'ton_sendTransaction' with object { to, value, text } (Tonkeeper supports text)
-        const tx = { to, value, text: comment };
-
-        // send transaction request to wallet (shows confirm screen inside wallet)
-        log('requesting transaction', tx);
-        await provider.request({ method: 'ton_sendTransaction', params: [tx] });
-
-        log('transaction requested — waiting for confirmation in wallet');
-        startPolling(comment);
-
-      } catch (err){
-        log('connect/send error', err);
-        // Fall back to open TonConnect UI (if not opened)
-        try { tonConnectUI.open(); } catch(e){ log('UI open failed', e); }
-      }
-    }
-
-    document.getElementById('connectBtn').addEventListener('click', onConnectClick);
-
-    // fallback button — open Tonkeeper web transfer page (if user prefers)
-    document.getElementById('openFallback').addEventListener('click', ()=>{
-      const tonKeeperUrl = `https://app.tonkeeper.com/transfer/${encodeURIComponent(res.address)}?amount=${Math.round(Number(res.amount)*1e9)}&text=${encodeURIComponent(res.comment)}`;
-      window.open(tonKeeperUrl, '_blank');
-    });
-
     // Polling /pay/status/:comment
     let pollTimer = null;
     async function checkStatus(comment){
@@ -154,9 +108,67 @@
       }, 2500);
     }
 
-    // If TonConnect modal didn't show (some WebViews block), attempt to open UI explicitly
-    // Also attempt auto-open when page loaded in WebApp, but don't force it.
-    // (You still must click "Connect Wallet" to open modal in many mobile webviews.)
+    // handler: open modal & connect
+    async function onConnectClick(){
+      try{
+        // open modal to choose wallet (TonConnect UI)
+        await tonConnect.connect(); // triggers TonConnect modal (wallet list)
+        // after connect, provider should be available through tonConnect
+        const provider = tonConnect.provider;
+        log('connected', { provider: !!provider, connectedWallet: tonConnect.connectedWallet });
+
+        if(!provider){
+          // if provider missing, show UI (fallback)
+          try { tonConnectUI.open(); } catch(e){ log('tonConnectUI.open failed', e); }
+          log('provider missing — opened UI');
+          return;
+        }
+
+        // prepare transaction payload (nanotons)
+        const to = res.address;
+        const value = String(Math.round(Number(res.amount) * 1e9)); // in nanotons
+        const comment = res.comment;
+
+        // Most wallets accept 'ton_sendTransaction' with object { to, value, text } (Tonkeeper supports text)
+        const tx = { to, value, text: comment };
+
+        // send transaction request to wallet (shows confirm screen inside wallet)
+        log('requesting transaction', tx);
+        await provider.request({ method: 'ton_sendTransaction', params: [tx] });
+
+        log('transaction requested — waiting for confirmation in wallet');
+        startPolling(comment);
+
+      } catch (err){
+        log('connect/send error', err);
+        // Fall back to open TonConnect UI (if not opened)
+        try { tonConnectUI.open(); } catch(e){ log('UI open failed', e); }
+      }
+    }
+
+    // attach handler to button
+    document.getElementById('connectBtn').addEventListener('click', onConnectClick);
+
+    // fallback button — open Tonkeeper web transfer page (if user prefers)
+    document.getElementById('openFallback').addEventListener('click', ()=>{
+      const tonKeeperUrl = `https://app.tonkeeper.com/transfer/${encodeURIComponent(res.address)}?amount=${Math.round(Number(res.amount)*1e9)}&text=${encodeURIComponent(res.comment)}`;
+      window.open(tonKeeperUrl, '_blank');
+    });
+
+    // autoOpen support: if page opened with autoOpen=1 try to open connection (user gesture initiated from bot)
+    const autoOpen = params.get('autoOpen') === '1' || params.get('autoOpen') === 'true';
+    if (autoOpen) {
+      setTimeout(async () => {
+        try {
+          log('autoOpen enabled — attempting to open TonConnect');
+          await onConnectClick();
+        } catch (err) {
+          log('autoOpen failed', err);
+          try { tonConnectUI.open(); } catch(e){ log('tonConnectUI.open fallback failed', e); }
+        }
+      }, 250);
+    }
+
     log('ready — click Connect Wallet to open TonConnect modal');
   })();
   </script>
