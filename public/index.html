@@ -565,7 +565,7 @@ document.getElementById('closePurchase').addEventListener('click', ()=> {
   purchaseBackdrop.setAttribute('aria-hidden','true');
 });
 
-/* ====== UPDATED purchase-option handler: opens wallet correctly inside Telegram WebApp and polls status ====== */
+/* ====== UPDATED purchase-option handler: opens pay-tonconnect.html so TonConnect modal can appear ====== */
 document.querySelectorAll('.purchase-option').forEach(opt => {
   opt.addEventListener('click', async () => {
     const duration = parseInt(opt.dataset.duration, 10);
@@ -579,90 +579,29 @@ document.querySelectorAll('.purchase-option').forEach(opt => {
       else if (duration === 14400) item = "boost_x2_2h";
       else if (duration === 28800) item = "boost_x2_7h";
 
-      // create invoice (use relative path so it works on same origin)
-      const r = await fetch("/pay/create", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          user_id: userId,
-          item
-        })
-      });
+      // Instead of opening a ton:// deeplink from here (WebView blocks it),
+      // we navigate the user to pay-tonconnect.html which runs TonConnect and shows the wallet modal.
+      const base = location.origin; // same origin (HTTPS)
+      const url = `${base}/pay-tonconnect.html?item=${encodeURIComponent(item)}&user=${encodeURIComponent(userId)}&autoOpen=1`;
 
-      const j = await r.json();
-
-      if (!j.success) {
-        showToast(j.message || "Failed to create invoice");
-        return;
-      }
-
-      // prepare deeplink and https fallback
-      const amountNano = Math.round(Number(j.amount) * 1e9);
-      const tonDeeplink = `ton://transfer/${encodeURIComponent(j.address)}?amount=${amountNano}&text=${encodeURIComponent(j.comment)}`;
-      const tonKeeperUrl = `https://app.tonkeeper.com/transfer/${encodeURIComponent(j.address)}?amount=${amountNano}&text=${encodeURIComponent(j.comment)}`;
-
-      // open external link helper: prefer Telegram.WebApp.openLink if available
-      function openExternal(url){
-        try {
-          if (window.Telegram && window.Telegram.WebApp && typeof window.Telegram.WebApp.openLink === 'function') {
-            window.Telegram.WebApp.openLink(url);
-            return;
-          }
-        } catch(e){}
-        // fallback
+      // prefer Telegram.WebApp.openLink when inside Telegram
+      try {
+        if (window.Telegram && window.Telegram.WebApp && typeof window.Telegram.WebApp.openLink === 'function') {
+          window.Telegram.WebApp.openLink(url);
+        } else {
+          window.location.href = url;
+        }
+      } catch (e) {
         window.location.href = url;
       }
 
-      // Try deeplink first then fallback to https after timeout
-      try {
-        openExternal(tonDeeplink);
-        setTimeout(() => { openExternal(tonKeeperUrl); }, 800);
-      } catch (e) {
-        openExternal(tonKeeperUrl);
-      }
-
-      showToast("Please complete payment in your wallet");
-
-      // hide purchase modal
+      // hide purchase modal here (we navigate away)
       purchaseBackdrop.style.display = 'none';
       purchaseBackdrop.setAttribute('aria-hidden','true');
 
-      // start polling for payment status
-      (function startPolling(comment){
-        let tries = 0;
-        const maxTries = 120; // poll limit (approx 5 minutes)
-        const interval = 2500;
-        const timer = setInterval(async () => {
-          tries++;
-          try {
-            const res = await fetch(`/pay/status/${encodeURIComponent(comment)}`);
-            const s = await res.json();
-            if (s && s.found && s.status === 'paid') {
-              clearInterval(timer);
-              showToast('Payment confirmed', 2000);
-              // ensure server processes the payment (activate boost)
-              try {
-                await fetch('/pay/confirm', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ comment }) });
-              } catch(e){}
-              // refresh client state
-              try { await pollState(); } catch(e){}
-              // close webapp if possible
-              try { if (window.Telegram && window.Telegram.WebApp) window.Telegram.WebApp.close(); } catch(e){}
-              return;
-            }
-            if (tries >= maxTries) {
-              clearInterval(timer);
-              showToast('Payment timeout — please check your wallet', 3000);
-            }
-          } catch (err) {
-            console.warn('payment status poll error', err);
-          }
-        }, interval);
-      })(j.comment);
-
     } catch (e) {
-      console.error("payment error", e);
-      showToast("Failed to create purchase");
+      console.error("payment navigation error", e);
+      showToast("Failed to open payment page");
     }
   });
 });
