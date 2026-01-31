@@ -5,13 +5,8 @@
   <meta name="viewport" content="width=device-width,initial-scale=1"/>
   <title>NJR — Pay (TON Connect)</title>
 
-  <!-- 1) CSS : جرّب تحميل محلياً أولاً (أفضل داخل public/) -->
-  <link rel="stylesheet" href="/tonconnect-ui.min.css">
-
-  <!-- 2) تحميل SDK ثم UI من ملفات محلية داخل public/ (أو استخدم CDN إذا لم تنجح محلياً) -->
-  <!-- ضع هذه الملفات في public/: tonconnect-sdk.min.js و tonconnect-ui.min.js -->
-  <script src="/tonconnect-sdk.min.js"></script>
-  <script src="/tonconnect-ui.min.js"></script>
+  <!-- Use local CSS first (put your custom or official tonconnect-ui.min.css in public/) -->
+  <link rel="stylesheet" href="/tonconnect-ui.min.css" id="tonconnect-ui-css"/>
 
   <style>
     body{font-family:Arial,Helvetica,sans-serif;background:#0f0b14;color:#fff;padding:18px}
@@ -37,127 +32,285 @@
     <div id="log" class="log" aria-live="polite"></div>
   </div>
 
-  <!-- (fallback modal omitted here for brevity; keep your existing modal if you want) -->
+  <!-- Custom chooser modal (fallback UI that looks like TapSwap chooser) -->
+  <div id="tcModalOverlay" class="tc-modal-overlay" style="display:none;align-items:center;justify-content:center;position:fixed;inset:0;z-index:9999;background:rgba(2,6,23,0.75);">
+    <div class="tc-modal" style="width:92%;max-width:420px;background:#0f172a;border-radius:14px;padding:12px;color:#fff;">
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:10px;border-bottom:1px solid rgba(255,255,255,0.03);">
+        <div style="font-weight:700;">Connect your wallet</div>
+        <button id="tcCloseBtn" style="background:none;border:none;color:#cfc1e8;font-size:18px;cursor:pointer;">✕</button>
+      </div>
+
+      <div style="padding:12px;">
+        <button id="tcOpenTelegram" style="display:flex;gap:10px;align-items:center;width:100%;padding:12px;border-radius:12px;background:#0ea5a2;color:#fff;border:none;font-weight:700;cursor:pointer;margin-bottom:12px;">
+          <span style="font-size:18px;">✈️</span>
+          <div style="text-align:left;">
+            <div>Open Wallet in Telegram</div>
+            <div style="font-size:12px;color:#cfc1e8">Open Wallet in Telegram or select your wallet</div>
+          </div>
+        </button>
+
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <button class="tc-wallet-item" data-url="https://app.tonkeeper.com/transfer/" style="flex:1;min-width:120px;padding:10px;border-radius:12px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.03);color:#fff;cursor:pointer;">
+            <div style="display:flex;gap:8px;align-items:center;"><span style="font-size:18px">🔷</span><span>Tonkeeper</span></div>
+          </button>
+
+          <button class="tc-wallet-item" data-url="https://tonhub.com/transfer/" style="flex:1;min-width:120px;padding:10px;border-radius:12px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.03);color:#fff;cursor:pointer;">
+            <div style="display:flex;gap:8px;align-items:center;"><span style="font-size:18px">💎</span><span>Tonhub</span></div>
+          </button>
+
+          <button class="tc-wallet-item" data-url="https://mytonwallet.org/transfer/" style="flex:1;min-width:120px;padding:10px;border-radius:12px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.03);color:#fff;cursor:pointer;">
+            <div style="display:flex;gap:8px;align-items:center;"><span style="font-size:18px">⭕</span><span>MyTonWallet</span></div>
+          </button>
+        </div>
+
+        <div style="font-size:12px;color:#9ca3af;margin-top:12px;text-align:center;">If TonConnect chooser is available it will open first; otherwise use wallet buttons above.</div>
+      </div>
+    </div>
+  </div>
 
 <script>
-/*
-  Initialization assumptions:
-  - public/tonconnect-sdk.min.js exposes global TonConnectSDK (or window.TonConnect)
-  - public/tonconnect-ui.min.js exposes global TonConnectUI or TON_CONNECT_UI
-  - public/tonconnect-ui.min.css is available
-*/
-
+/* pay-tonconnect.html - robust TonConnect flow with fallback chooser */
 (async function(){
   const logEl = document.getElementById('log');
   const msgEl = document.getElementById('msg');
-  function log(...a){ console.log(...a); if(logEl) logEl.innerText += a.map(x=> typeof x === 'object' ? JSON.stringify(x) : String(x)).join(' ') + "\n"; }
+  function log(...args){ console.log(...args); if(logEl) logEl.innerText += args.map(x=> typeof x === 'object' ? JSON.stringify(x) : String(x)).join(' ') + "\n"; }
   function setMsg(t){ if(msgEl) msgEl.innerText = t; }
 
-  // Check SDK/UI availability (they were included via script tags in head)
-  log('globals presence', {
-    TonConnectSDK: !!window.TonConnectSDK,
-    TonConnect: !!window.TonConnect,
-    TonConnectUI: !!window.TonConnectUI,
-    TON_CONNECT_UI: !!window.TON_CONNECT_UI
-  });
-
-  // Use the known global names (try multiple)
-  const SDKGlobal = window.TonConnectSDK || window.TonConnect || (window.TonConnectSDK ? window.TonConnectSDK : null);
-  const UIGlobal = window.TonConnectUI || window.TON_CONNECT_UI || null;
-
-  if(!SDKGlobal){
-    log('TonConnect SDK not loaded. Ensure public/tonconnect-sdk.min.js exists and is the correct UMD.');
-    setMsg('SDK missing - use fallback');
-    return;
+  // dynamic script loader
+  function loadScript(src){
+    return new Promise((resolve,reject)=>{
+      const s = document.createElement('script');
+      s.src = src;
+      s.async = true;
+      s.onload = ()=>{ log('loaded', src); resolve(); };
+      s.onerror = (e)=>{ log('failed to load', src); reject(new Error('Failed load '+src)); };
+      document.head.appendChild(s);
+    });
   }
 
-  const manifestUrl = `${location.origin}/tonconnect-manifest.json`;
-  // create TonConnect instance
-  let tonConnect;
+  // Ensure CSS (local else CDN)
   try {
-    const TonCtor = SDKGlobal.TonConnect || SDKGlobal;
-    tonConnect = new TonCtor({ manifestUrl });
-    window.tonConnect = tonConnect;
-    log('tonConnect created');
+    const r = await fetch('/tonconnect-ui.min.css', { method:'HEAD' });
+    if(!r.ok) throw new Error('missing local css');
+    log('CSS local ok');
   } catch(e){
-    log('tonConnect create error', e);
-    setMsg('TonConnect init failed - fallback only');
-    return;
+    log('CSS missing locally, using CDN', e.message);
+    const link = document.getElementById('tonconnect-ui-css') || document.createElement('link');
+    link.id = 'tonconnect-ui-css';
+    link.rel = 'stylesheet';
+    link.href = 'https://cdn.jsdelivr.net/npm/@tonconnect/ui@latest/dist/tonconnect-ui.min.css';
+    document.head.appendChild(link);
   }
 
-  // create UI instance only when UIGlobal exists
+  // Load SDK/UI if necessary (try local first)
+  if(!window.TonConnectSDK && !window.TonConnect){
+    try { await loadScript('/tonconnect-sdk.min.js'); log('local sdk loaded'); } catch(e){
+      log('local sdk failed, trying CDN', e.message);
+      try { await loadScript('https://cdn.jsdelivr.net/npm/@tonconnect/sdk@latest/dist/tonconnect-sdk.min.js'); log('cdn sdk loaded'); } catch(e2){ log('cdn sdk failed', e2.message); }
+    }
+  } else {
+    log('SDK already present on window');
+  }
+
+  if(!window.TonConnectUI && !window.TON_CONNECT_UI){
+    try { await loadScript('/tonconnect-ui.min.js'); log('local ui loaded'); } catch(e){
+      log('local ui failed, trying CDN', e.message);
+      try { await loadScript('https://cdn.jsdelivr.net/npm/@tonconnect/ui@latest/dist/tonconnect-ui.min.js'); log('cdn ui loaded'); } catch(e2){ log('cdn ui failed', e2.message); }
+    }
+  } else {
+    log('UI already present on window');
+  }
+
+  log('window keys', { TonConnectSDK: !!window.TonConnectSDK, TonConnect: !!window.TonConnect, TonConnectUI: !!window.TonConnectUI, TON_CONNECT_UI: !!window.TON_CONNECT_UI });
+
+  // Detect constructors/globals
+  const TonSDKGlobal = window.TonConnectSDK || window.TonConnect || null;
+  const TonUIGlobal = window.TonConnectUI || window.TON_CONNECT_UI || null;
+
+  // Create TonConnect instance
+  const manifestUrl = `${location.origin}/tonconnect-manifest.json`;
+  let tonConnect = null;
+  try {
+    if(TonSDKGlobal){
+      const TonCtor = (TonSDKGlobal.TonConnect && TonSDKGlobal.TonConnect) || TonSDKGlobal;
+      tonConnect = new TonCtor({ manifestUrl });
+      window.tonConnect = tonConnect;
+      log('tonConnect created');
+    } else {
+      log('TonConnect SDK not available - will rely on fallback links');
+    }
+  } catch(e){
+    log('TonConnect init error', e && e.message ? e.message : e);
+    setMsg('TonConnect init failed — using fallback');
+  }
+
+  // Create TonConnect UI instance if available
   let tonConnectUI = null;
-  if(UIGlobal){
-    try {
-      const UIctor = UIGlobal.TonConnectUI || UIGlobal;
+  try {
+    if(TonUIGlobal && tonConnect){
+      const UIctor = (TonUIGlobal.TonConnectUI && TonUIGlobal.TonConnectUI) || TonUIGlobal;
       tonConnectUI = new UIctor({ tonConnect });
       window.tonConnectUI = tonConnectUI;
       log('tonConnectUI created');
-    } catch(e){
-      log('tonConnectUI init error', e);
+    } else {
+      log('TonConnectUI not created (missing constructor or tonConnect)');
     }
-  } else {
-    log('TonConnectUI global not found - UI modal unavailable');
+  } catch(e){
+    log('TonConnectUI init error', e && e.message ? e.message : e);
   }
 
-  // create invoice (same as your server flow)
+  // invoice creation
   const params = new URLSearchParams(location.search);
   const item = params.get('item') || 'boost_x2_1h';
   const user = params.get('user') || '';
 
   async function createInvoice(){
     try {
-      const r = await fetch('/pay/create', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ user_id:user, item }) });
+      const r = await fetch('/pay/create', {
+        method:'POST',
+        headers:{ 'Content-Type':'application/json' },
+        body: JSON.stringify({ user_id: user, item })
+      });
       const j = await r.json();
       log('createInvoice', j);
       return j;
-    } catch(e){ log('createInvoice err', e); return { success:false }; }
+    } catch(e){
+      log('createInvoice error', e);
+      return { success:false, message:'network error' };
+    }
   }
 
   const invoice = await createInvoice();
-  if(!invoice.success){ setMsg('Invoice creation failed'); return; }
+  if(!invoice.success){
+    document.getElementById('title').innerText = 'Payment error';
+    document.getElementById('desc').innerText = invoice.message || 'Failed to create invoice';
+    setMsg('Invoice creation failed');
+    return;
+  }
+  // expose globally for chooser fallback
   window.invoice = invoice;
   document.getElementById('price').innerText = `Price: ${invoice.amount} TON`;
-  setMsg('Ready — click Connect Wallet');
 
-  // Helper to request tx
+  // helper: request transaction
   async function requestSendTransaction(provider){
     try {
       const to = invoice.address;
       const value = String(Math.round(Number(invoice.amount) * 1e9));
       const comment = invoice.comment;
       const tx = { to, value, text: comment };
-      log('requestSendTransaction', tx);
+      log('requestSendTransaction ->', tx);
       setMsg('Requesting transaction in wallet...');
-      await provider.request({ method:'ton_sendTransaction', params: [tx] });
+      await provider.request({ method: 'ton_sendTransaction', params: [tx] });
       setMsg('Transaction requested — waiting for confirmation...');
+      startPolling(comment);
     } catch(e){
       log('requestSendTransaction error', e);
       setMsg('Transaction request failed');
     }
   }
 
-  // Connect button - call tonConnectUI.open() (this must show the TapSwap-like chooser)
-  document.getElementById('connectBtn').addEventListener('click', async ()=>{
-    const btn = document.getElementById('connectBtn'); btn.disabled = true;
-    setMsg('Opening wallet chooser...');
+  // Polling
+  let pollTimer = null;
+  async function checkPaymentStatus(comment){
     try {
-      if(tonConnectUI && typeof tonConnectUI.open === 'function'){
-        // open TonConnect UI chooser
+      const r = await fetch(`/pay/status/${encodeURIComponent(comment)}`);
+      return await r.json();
+    } catch(e){ return { success:false }; }
+  }
+  function startPolling(comment){
+    if(pollTimer) return;
+    pollTimer = setInterval(async ()=>{
+      const s = await checkPaymentStatus(comment);
+      log('poll', s);
+      if(s && s.found && s.status === 'paid'){
+        clearInterval(pollTimer); pollTimer = null;
+        setMsg('Payment received — activating boost');
+        try { await fetch('/pay/confirm', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ comment }) }); } catch(e){}
+        setTimeout(()=>{ try{ if(window.Telegram && window.Telegram.WebApp) window.Telegram.WebApp.close(); else window.close(); } catch(e){} }, 1200);
+      }
+    }, 2500);
+  }
+
+  // Fallback chooser function (opens modal with wallet links)
+  window.openTonChooser = function(invoiceObj){
+    const overlay = document.getElementById('tcModalOverlay');
+    const closeBtn = document.getElementById('tcCloseBtn');
+    const openTelegramBtn = document.getElementById('tcOpenTelegram');
+    const walletBtns = document.querySelectorAll('.tc-wallet-item[data-url]');
+
+    function hide(){ overlay.style.display='none'; }
+    function show(){ overlay.style.display='flex'; }
+
+    // attach wallet links
+    walletBtns.forEach(btn=>{
+      btn.onclick = ()=>{
+        const base = btn.getAttribute('data-url');
+        const addr = invoiceObj && invoiceObj.address ? invoiceObj.address : '';
+        const amount = invoiceObj && invoiceObj.amount ? Math.round(Number(invoiceObj.amount) * 1e9) : '';
+        const comment = invoiceObj && invoiceObj.comment ? encodeURIComponent(invoiceObj.comment) : '';
+        const url = base + (addr ? encodeURIComponent(addr) : '') + (amount ? `?amount=${amount}&text=${comment}` : '');
         try {
-          tonConnectUI.open();
-          log('tonConnectUI.open() called');
+          if(window.Telegram && window.Telegram.WebApp && typeof window.Telegram.WebApp.openLink === 'function'){
+            window.Telegram.WebApp.openLink(url);
+          } else {
+            window.open(url, '_blank');
+          }
         } catch(e){
-          log('tonConnectUI.open() failed', e);
+          window.open(url, '_blank');
         }
+        hide();
+      };
+    });
+
+    openTelegramBtn.onclick = ()=>{
+      const addr = invoiceObj && invoiceObj.address ? invoiceObj.address : '';
+      const amount = invoiceObj && invoiceObj.amount ? Math.round(Number(invoiceObj.amount) * 1e9) : '';
+      const comment = invoiceObj && invoiceObj.comment ? encodeURIComponent(invoiceObj.comment) : '';
+      const url = `https://app.tonkeeper.com/transfer/${encodeURIComponent(addr)}?amount=${amount}&text=${comment}`;
+      try {
+        if(window.Telegram && window.Telegram.WebApp && typeof window.Telegram.WebApp.openLink === 'function'){
+          window.Telegram.WebApp.openLink(url);
+        } else {
+          window.open(url, '_blank');
+        }
+      } catch(e){
+        window.open(url, '_blank');
+      }
+      hide();
+    };
+
+    closeBtn.onclick = hide;
+    overlay.onclick = (ev) => { if(ev.target === overlay) hide(); };
+
+    show();
+  };
+
+  // Connect button logic: try TonConnectUI.open(), wait provider, fallback to custom chooser
+  document.getElementById('connectBtn').addEventListener('click', async ()=>{
+    const btn = document.getElementById('connectBtn');
+    btn.disabled = true;
+    setMsg('Attempting to open wallet chooser...');
+    try {
+      // Try open TonConnectUI if available
+      if(window.tonConnectUI && typeof window.tonConnectUI.open === 'function'){
+        try { window.tonConnectUI.open(); log('called tonConnectUI.open()'); } catch(e){ log('tonConnectUI.open() error', e); }
       } else {
-        // if UI not available, try tonConnect.connect() (may open wallet if provider supports)
-        try { await tonConnect.connect(); log('tonConnect.connect() called'); } catch(e){ log('tonConnect.connect rejected', e); }
+        // try to build temporary UI if SDK & UI constructors exist
+        try {
+          const Ton = (window.TonConnectSDK && window.TonConnectSDK.TonConnect) || window.TonConnect;
+          const UI = (window.TonConnectUI && window.TonConnectUI.TonConnectUI) || window.TON_CONNECT_UI && window.TON_CONNECT_UI.TonConnectUI;
+          if(Ton && UI){
+            window.tonConnect = new Ton({ manifestUrl });
+            window.tonConnectUI = new UI({ tonConnect: window.tonConnect });
+            try { window.tonConnectUI.open(); log('opened temporary tonConnectUI'); } catch(e){ log('tempUI.open err', e); }
+          }
+        } catch(e){ log('temp UI creation failed', e); }
       }
 
-      // wait for provider to appear (user selected a wallet). If provider appears, call requestSendTransaction.
-      const waitForProvider = async (timeoutMs = 8000) => {
-        const step = 300; let waited = 0;
+      // Wait for provider to appear (user may select wallet)
+      const waitForProvider = async (timeoutMs=6000) => {
+        const step = 300;
+        let waited = 0;
         while(waited < timeoutMs){
           if((window.tonConnect && window.tonConnect.provider) || (window.TonConnect && window.TonConnect.provider)) return true;
           await new Promise(r=>setTimeout(r, step));
@@ -166,33 +319,43 @@
         return false;
       };
 
-      const ok = await waitForProvider(8000);
-      if(ok){
-        setMsg('Wallet connected — sending transaction...');
-        const provider = (window.tonConnect && window.tonConnect.provider) || (window.TonConnect && window.TonConnect.provider);
-        if(provider) await requestSendTransaction(provider);
-        else setMsg('Connected but provider object missing — try fallback');
+      const providerDetected = await waitForProvider(6000);
+      if(providerDetected){
+        setMsg('Wallet connected — requesting transaction...');
+        const provider = (window.tonConnect && window.tonConnect.provider) || (window.TonConnect && window.TonConnect.provider) || null;
+        if(provider){
+          await requestSendTransaction(provider);
+        } else {
+          setMsg('Connected but no provider object found - use fallback');
+          log('provider object missing despite detection');
+        }
       } else {
-        setMsg('No wallet provider detected — use fallback chooser');
-        // optionally show your fallback modal here (openTonChooser(window.invoice))
-        if(typeof window.openTonChooser === 'function') window.openTonChooser(window.invoice);
+        setMsg('No wallet provider detected — showing wallet chooser (fallback)');
+        if(typeof window.openTonChooser === 'function'){
+          window.openTonChooser(window.invoice);
+        } else {
+          setMsg('Fallback chooser not available - use Tonkeeper button');
+        }
       }
 
-    } catch(e){
-      log('connect handler error', e);
-      setMsg('Connection failed - use fallback');
+    } catch(err){
+      console.error('connectBtn error', err);
+      setMsg('Connection failed, use fallback');
     } finally {
       btn.disabled = false;
     }
   });
 
-  // fallback external button (Tonkeeper)
+  // fallback external link (Tonkeeper)
   document.getElementById('openFallback').addEventListener('click', ()=>{
     const tonKeeperUrl = `https://app.tonkeeper.com/transfer/${encodeURIComponent(invoice.address)}?amount=${Math.round(Number(invoice.amount)*1e9)}&text=${encodeURIComponent(invoice.comment)}`;
     try { if(window.Telegram && window.Telegram.WebApp && typeof window.Telegram.WebApp.openLink === 'function') window.Telegram.WebApp.openLink(tonKeeperUrl); else window.open(tonKeeperUrl, '_blank'); } catch(e){ window.open(tonKeeperUrl, '_blank'); }
   });
 
+  setMsg('Ready — click Connect Wallet');
+
 })();
 </script>
+
 </body>
 </html>
