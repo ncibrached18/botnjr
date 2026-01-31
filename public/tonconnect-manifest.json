@@ -1,0 +1,13 @@
+{
+  "name": "NJR — Boost payments",
+  "description": "NJR game payments via TON Connect",
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    }
+  ],
+  "start_url": "/pay-tonconnect.html",
+  "short_name": "NJR Pay"
+}
